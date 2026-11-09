@@ -1,10 +1,87 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
+import { GoogleButton } from '@/components/auth-form';
 import { ErrorNote, Spinner } from '@/components/ui';
-import { gql } from '@/lib/api';
-import { SEND_TEST_EMAIL, SETTINGS, UPDATE_SETTINGS } from '@/lib/queries';
+import { gql, rest } from '@/lib/api';
+import { DISCONNECT_GOOGLE, SEND_TEST_EMAIL, SETTINGS, UPDATE_SETTINGS } from '@/lib/queries';
 import type { Settings } from '@/lib/types';
+
+const GOOGLE_RESULTS: Record<string, { ok: boolean; text: string }> = {
+  linked: { ok: true, text: 'Google is connected. You can now sign in with Google or your password.' },
+  google_used_by_other: { ok: false, text: 'That Google account is already connected to a different LifeLoop account.' },
+  email_belongs_to_other: { ok: false, text: "That Google account's email belongs to a different LifeLoop account." },
+  not_logged_in: { ok: false, text: 'Your session expired. Log in and try again.' },
+  google_cancelled: { ok: false, text: 'Connecting Google was cancelled.' },
+  google_expired: { ok: false, text: 'That took too long. Please try again.' },
+  google_failed: { ok: false, text: "Connecting Google didn't work. Please try again." },
+  google_unverified: { ok: false, text: 'That Google email address is not verified.' },
+};
+
+function GoogleSection({ s }: { s: Settings }) {
+  const qc = useQueryClient();
+  const params = useSearchParams();
+  const result = GOOGLE_RESULTS[params.get('google') ?? ''];
+  const providers = useQuery({ queryKey: ['auth-providers'], queryFn: () => rest<{ google: boolean }>('/api/auth/providers'), staleTime: Infinity });
+  const disconnect = useMutation({
+    mutationFn: () => gql(DISCONNECT_GOOGLE),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['settings'] }),
+  });
+
+  const addPassword = useMutation({
+    mutationFn: () => rest('/api/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email: s.email }) }),
+  });
+
+  if (!providers.data?.google && !s.googleEmail && s.hasPassword) return null;
+  return (
+    <section className="card space-y-3 p-5">
+      <div>
+        <h2 className="font-semibold">Sign-in</h2>
+        <p className="text-sm text-stone-500">LifeLoop only receives your name and email from Google — never your Gmail.</p>
+      </div>
+      {result && (
+        <p
+          className={`rounded-xl px-3 py-2 text-sm ${result.ok ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200' : 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300'}`}
+        >
+          {result.text}
+        </p>
+      )}
+      {s.googleEmail ? (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm">
+            Google connected: <strong>{s.googleEmail}</strong>
+          </p>
+          {s.hasPassword ? (
+            <button className="btn-ghost" disabled={disconnect.isPending} onClick={() => disconnect.mutate()}>
+              Disconnect
+            </button>
+          ) : (
+            <span className="text-xs text-stone-500">Your only sign-in method</span>
+          )}
+        </div>
+      ) : (
+        <GoogleButton href="/api/auth/google/start?mode=link" label="Connect Google" />
+      )}
+      {!s.hasPassword && (
+        <div className="rounded-xl border border-stone-200 p-3 text-sm dark:border-stone-700">
+          <p className="text-stone-600 dark:text-stone-300">
+            Want to also sign in with email and password? We&apos;ll email <strong>{s.email}</strong> a link to set one.
+          </p>
+          {addPassword.isSuccess ? (
+            <p className="mt-2 font-medium text-emerald-700 dark:text-emerald-300">Link sent. Check your inbox (it expires in 30 minutes).</p>
+          ) : (
+            <button className="btn-secondary mt-2" disabled={addPassword.isPending} onClick={() => addPassword.mutate()}>
+              {addPassword.isPending && <Spinner />} Add a password
+            </button>
+          )}
+        </div>
+      )}
+      <ErrorNote error={disconnect.error ?? addPassword.error} />
+    </section>
+  );
+}
 
 const hourLabel = (h: number) => new Date(2000, 0, 1, h).toLocaleTimeString('en-IN', { hour: 'numeric', hour12: true });
 
@@ -24,6 +101,10 @@ export default function SettingsPage() {
   return (
     <div className="max-w-xl space-y-6">
       <h1 className="text-2xl font-semibold">Settings</h1>
+
+      <Suspense fallback={null}>
+        <GoogleSection s={s} />
+      </Suspense>
 
       <section className="card space-y-5 p-5">
         <div>

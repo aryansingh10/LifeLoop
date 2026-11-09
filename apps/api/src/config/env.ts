@@ -33,6 +33,11 @@ const EnvSchema = z.object({
   SMTP_PASS: z.string().optional(),
   EMAIL_FROM: z.string().default('LifeLoop <no-reply@lifeloop.local>'),
   APP_URL: z.string().default('http://localhost:3000'),
+  // Google sign-in (optional). Create an OAuth client of type 'Web application' in Google Cloud Console.
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
+  /** Defaults to APP_URL + /api/auth/google/callback (the web app proxies /api to the API). */
+  GOOGLE_REDIRECT_URI: z.string().optional(),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

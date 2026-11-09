@@ -3,7 +3,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Logo } from '@/components/auth-form';
 import { NotificationBell } from '@/components/notification-bell';
 import { Spinner } from '@/components/ui';
@@ -78,6 +78,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           </div>
         </div>
       </header>
+      {me.data.emailVerified === false && <VerifyEmailBanner email={me.data.email} />}
       <main className="mx-auto max-w-5xl px-4 py-6">{children}</main>
       <nav className="fixed inset-x-0 bottom-0 z-20 flex justify-around border-t border-stone-200 bg-white py-2 sm:hidden dark:border-stone-800 dark:bg-stone-900">
         {NAV.map((n) => (
@@ -86,6 +87,37 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           </NavLink>
         ))}
       </nav>
+    </div>
+  );
+}
+
+function VerifyEmailBanner({ email }: { email: string }) {
+  const [state, setState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+  const [message, setMessage] = useState('');
+  async function resend() {
+    setState('sending');
+    try {
+      await rest('/api/auth/resend-verification', { method: 'POST' });
+      setState('sent');
+    } catch (err) {
+      setMessage((err as Error).message);
+      setState('error');
+    }
+  }
+  return (
+    <div className="border-b border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/40">
+      <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-2 px-4 py-2 text-sm text-amber-900 dark:text-amber-200">
+        <span>
+          Please verify your email: we sent a link to <strong>{email}</strong>.
+          {state === 'sent' && ' A new link is on its way.'}
+          {state === 'error' && ` ${message}`}
+        </span>
+        {state !== 'sent' && (
+          <button className="font-medium underline-offset-2 hover:underline" disabled={state === 'sending'} onClick={resend}>
+            {state === 'sending' ? 'Sending…' : 'Resend email'}
+          </button>
+        )}
+      </div>
     </div>
   );
 }

@@ -16,6 +16,9 @@ export class User {
   @Field() digestEnabled: boolean;
   @Field(() => Int, { description: 'Local hour (0-23) for the morning digest' }) digestHour: number;
   @Field({ description: 'console (emails printed by the API) or smtp (real email)' }) emailDelivery: string;
+  @Field(() => String, { nullable: true, description: 'Google account linked for sign-in, if any' }) googleEmail: string | null;
+  @Field() hasPassword: boolean;
+  @Field() emailVerified: boolean;
 }
 
 @ObjectType()

@@ -6,8 +6,9 @@ import { InjectDb, type DB } from '../../database/database.module.js';
 import { users, type UserRow } from '../../database/schema.js';
 import { env } from '../../config/env.js';
 import { NotificationSettingsInput, UpdateProfileInput, User } from '../../graphql/models.js';
+import { GoogleAuthError, GoogleService } from '../auth/google/google.service.js';
 
-const toUser = (u: UserRow): User => ({
+const toUser = (u: UserRow, googleEmail: string | null = null): User => ({
   id: u.id,
   email: u.email,
   displayName: u.displayName,
@@ -17,6 +18,9 @@ const toUser = (u: UserRow): User => ({
   digestEnabled: u.digestEnabled,
   digestHour: u.digestHour,
   emailDelivery: env().EMAIL_PROVIDER,
+  googleEmail,
+  hasPassword: Boolean(u.passwordHash),
+  emailVerified: Boolean(u.emailVerifiedAt),
 });
 
 function isValidTimeZone(tz: string): boolean {
@@ -30,13 +34,16 @@ function isValidTimeZone(tz: string): boolean {
 
 @Resolver(() => User)
 export class UsersResolver {
-  constructor(@InjectDb() private readonly db: DB) {}
+  constructor(
+    @InjectDb() private readonly db: DB,
+    private readonly google: GoogleService,
+  ) {}
 
   @Query(() => User)
   async me(@CurrentUserId() userId: string): Promise<User> {
     const [u] = await this.db.select().from(users).where(eq(users.id, userId));
     if (!u) throw new NotFoundException('User not found');
-    return toUser(u);
+    return toUser(u, (await this.google.isLinked(userId))?.email ?? null);
   }
 
   @Mutation(() => User)
@@ -67,6 +74,17 @@ export class UsersResolver {
       patch.lastDigestDate = null; // let the new time take effect today
     }
     if (Object.keys(patch).length) await this.db.update(users).set(patch).where(eq(users.id, userId));
+    return this.me(userId);
+  }
+
+  @Mutation(() => User, { description: 'Disconnect Google sign-in (only if a password is set)' })
+  async disconnectGoogle(@CurrentUserId() userId: string): Promise<User> {
+    try {
+      await this.google.unlink(userId);
+    } catch (err) {
+      if (err instanceof GoogleAuthError) throw new BadRequestException(err.message);
+      throw err;
+    }
     return this.me(userId);
   }
 }

@@ -19,6 +19,8 @@ export const LoginSchema = z.object({
 
 // argon2id with OWASP-recommended memory cost.
 const ARGON = { memoryCost: 19456, timeCost: 2, parallelism: 1 };
+export const PASSWORD_RULE = z.string().min(10, 'Password must be at least 10 characters').max(200);
+export const hashPassword = (password: string) => hash(password, ARGON);
 // Used to equalize timing when the email does not exist.
 const DUMMY_HASH = hash('lifeloop-timing-equalizer', ARGON);
 

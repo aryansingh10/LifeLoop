@@ -3,6 +3,8 @@ export interface User {
   email: string;
   displayName: string;
   timezone: string;
+  emailVerified?: boolean;
+  hasPassword?: boolean;
 }
 
 export interface Evidenced {
@@ -150,4 +152,7 @@ export interface Settings extends User {
   digestEnabled: boolean;
   digestHour: number;
   emailDelivery: 'console' | 'smtp';
+  googleEmail: string | null;
+  hasPassword: boolean;
+  emailVerified: boolean;
 }

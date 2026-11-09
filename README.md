@@ -7,6 +7,7 @@ Personal follow-through tracker: share a message, email or screenshot once; Life
 ## What works in this prototype
 
 - Email + password accounts (httpOnly session cookie)
+- Google sign-in (OpenID Connect with PKCE; only name + email are requested). An existing password account is linked only after you log in with its password once. Connect or disconnect from Settings.
 - Capture by typing, pasting, or uploading/pasting a screenshot (PNG/JPEG/WebP ≤ 5 MB)
 - Screenshot OCR with Tesseract.js (runs locally; language data downloads once on first use)
 - AI extraction into a validated schema
@@ -22,7 +23,9 @@ Personal follow-through tracker: share a message, email or screenshot once; Life
 - Email: one batched email per run for new reminders, plus an optional morning digest. Settings page with on/off switches and a test email
 - Follow-up dates must be today or later; LifeLoop never suggests a follow-up in the past
 
-**Not yet built:** Google sign-in, email verification and password reset, browser push notifications, voice capture, Gmail/forwarding, deployment. See the architecture plan for the roadmap.
+- Email verification links, "Forgot password?" (also lets Google-only users add a password); setting a password signs out all other devices
+
+**Not yet built:** browser push notifications, voice capture, Gmail/forwarding, deployment. See the architecture plan for the roadmap.
 
 ## Stack
 
@@ -62,6 +65,13 @@ AI_PROVIDER=anthropic
 ANTHROPIC_API_KEY=sk-ant-...
 AI_MODEL=claude-haiku-5-5
 ```
+
+### Enable Google sign-in
+
+1. Go to https://console.cloud.google.com/ and create a project (e.g. "LifeLoop")
+2. **APIs & Services → OAuth consent screen**: choose *External*, app name "LifeLoop", your email as support/developer contact. Scopes: just the defaults (`openid`, `email`, `profile`). While the app is in *Testing*, add the Google accounts that may sign in under **Test users**
+3. **APIs & Services → Credentials → Create credentials → OAuth client ID**: type *Web application*, Authorized redirect URI `http://localhost:3000/api/auth/google/callback`
+4. Put the client ID and secret in `apps/api/.env` (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`) and restart `npm run dev`. The "Continue with Google" button appears on the login and register pages
 
 ### Receive reminder emails in your inbox
 

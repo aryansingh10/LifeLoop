@@ -26,7 +26,7 @@ export const SUGGESTION = `
   targetCase { ${CASE_SUMMARY} }
 `;
 
-export const ME = `query Me { me { id email displayName timezone } }`;
+export const ME = `query Me { me { id email displayName timezone emailVerified hasPassword } }`;
 
 export const DASHBOARD = `query Dashboard {
   dashboard {
@@ -77,6 +77,7 @@ export const LOG_FOLLOW_UP = `mutation LogFollowUp($caseId: ID!, $note: String, 
 
 export const NOTIFICATIONS = `query Notifications { unreadNotificationCount notifications(limit: 20) { id kind title body caseId read emailed createdAt } }`;
 export const MARK_READ = `mutation MarkRead($ids: [ID!]) { markNotificationsRead(ids: $ids) }`;
-export const SETTINGS = `query Settings { me { id email displayName timezone emailNotifications digestEnabled digestHour emailDelivery } }`;
+export const SETTINGS = `query Settings { me { id email displayName timezone emailNotifications digestEnabled digestHour emailDelivery googleEmail hasPassword emailVerified } }`;
 export const UPDATE_SETTINGS = `mutation UpdateSettings($input: NotificationSettingsInput!) { updateNotificationSettings(input: $input) { id emailNotifications digestEnabled digestHour } }`;
 export const SEND_TEST_EMAIL = `mutation { sendTestEmail }`;
+export const DISCONNECT_GOOGLE = `mutation { disconnectGoogle { id googleEmail } }`;

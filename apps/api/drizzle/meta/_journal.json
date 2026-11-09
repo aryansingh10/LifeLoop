@@ -15,6 +15,20 @@
       "when": 1794119756231,
       "tag": "0001_notifications",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1794201656051,
+      "tag": "0002_google_identities",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1794204311510,
+      "tag": "0003_email_verification",
+      "breakpoints": true
     }
   ]
 }

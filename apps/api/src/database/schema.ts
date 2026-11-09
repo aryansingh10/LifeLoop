@@ -48,10 +48,50 @@ export const users = mysqlTable(
     digestEnabled: boolean('digest_enabled').notNull().default(true),
     digestHour: int('digest_hour').notNull().default(9), // local hour 0-23
     lastDigestDate: varchar('last_digest_date', { length: 10 }), // YYYY-MM-DD in the user's timezone
+    /** Set when ownership of the email is proven (e.g. Google sign-in with a verified email). */
+    emailVerifiedAt: ts('email_verified_at'),
+    /** Sessions issued before this instant are rejected ("sign out everywhere"). */
+    sessionsValidAfter: ts('sessions_valid_after'),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
   (t) => [uniqueIndex('users_email_uq').on(t.email)],
+);
+
+/** Single-use tokens sent by email (verify email; later: password reset). Only a hash is stored. */
+export const authTokens = mysqlTable(
+  'auth_tokens',
+  {
+    id: id().primaryKey(),
+    userId: id('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    purpose: varchar('purpose', { length: 24 }).notNull(), // VERIFY_EMAIL
+    tokenHash: char('token_hash', { length: 64 }).notNull(),
+    expiresAt: datetime('expires_at', { mode: 'date', fsp: 3 }).notNull(),
+    usedAt: ts('used_at'),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex('auth_tokens_hash_uq').on(t.tokenHash), index('auth_tokens_user_purpose_idx').on(t.userId, t.purpose)],
+);
+
+/** External sign-in identities (Google). One provider account maps to exactly one LifeLoop user. */
+export const userIdentities = mysqlTable(
+  'user_identities',
+  {
+    id: id().primaryKey(),
+    userId: id('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    provider: varchar('provider', { length: 16 }).notNull(), // GOOGLE
+    providerSubject: varchar('provider_subject', { length: 255 }).notNull(), // Google "sub" (stable account id)
+    emailAtLink: varchar('email_at_link', { length: 320 }).notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex('user_identities_provider_subject_uq').on(t.provider, t.providerSubject),
+    uniqueIndex('user_identities_user_provider_uq').on(t.userId, t.provider),
+  ],
 );
 
 // ---------------------------------------------------------------- notifications
@@ -355,3 +395,4 @@ export type SuggestionRow = typeof suggestions.$inferSelect;
 export type JobRow = typeof jobs.$inferSelect;
 export type MatchCandidateRow = typeof suggestionMatchCandidates.$inferSelect;
 export type NotificationRow = typeof notifications.$inferSelect;
+export type UserIdentityRow = typeof userIdentities.$inferSelect;

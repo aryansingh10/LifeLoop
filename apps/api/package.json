@@ -26,6 +26,7 @@
     "dotenv": "^18.0.9",
     "drizzle-orm": "^0.45.4",
     "graphql": "^16.15.0",
+    "jose": "^6.2.16",
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.5.0",
     "mysql2": "^3.24.6",

@@ -4,7 +4,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { GraphQLModule } from '@nestjs/graphql';
 import { sql } from 'drizzle-orm';
 import type { GraphQLFormattedError } from 'graphql';
-import { AuthGuard, Public, type GqlContext } from './common/auth.js';
+import { AuthGuard, Public, SessionValidator, type GqlContext } from './common/auth.js';
 import { env } from './config/env.js';
 import { DatabaseModule, InjectDb, type DB } from './database/database.module.js';
 import { CapturesResolver, CasesResolver, SuggestionsResolver } from './graphql/resolvers.js';
@@ -13,6 +13,9 @@ import { AttachmentsController } from './modules/attachments/attachments.control
 import { AttachmentsService } from './modules/attachments/attachments.service.js';
 import { AuthController } from './modules/auth/auth.controller.js';
 import { AuthService } from './modules/auth/auth.service.js';
+import { GoogleService } from './modules/auth/google/google.service.js';
+import { EmailVerificationService } from './modules/auth/email-verification.service.js';
+import { PasswordResetService } from './modules/auth/password-reset.service.js';
 import { CapturesService } from './modules/captures/captures.service.js';
 import { CasesService } from './modules/cases/cases.service.js';
 import { ExtractionModule } from './modules/extraction/extraction.module.js';
@@ -80,6 +83,10 @@ function formatError(formatted: GraphQLFormattedError, error: unknown): GraphQLF
   providers: [
     { provide: APP_GUARD, useClass: AuthGuard },
     AuthService,
+    GoogleService,
+    EmailVerificationService,
+    PasswordResetService,
+    SessionValidator,
     UsersResolver,
     LocalDiskStorage,
     AttachmentsService,
