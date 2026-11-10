@@ -47,9 +47,14 @@ export class CapturesResolver {
     return toCapture(await this.captureSvc.createText(userId, input.text, input.source, input.clientRequestId));
   }
 
-  @Mutation(() => Capture)
+  @Mutation(() => Capture, { description: 'Track an uploaded attachment' })
+  createAttachmentCapture(@CurrentUserId() userId: string, @Args('input') input: CreateScreenshotCaptureInput) {
+    return this.createScreenshotCapture(userId, input);
+  }
+
+  @Mutation(() => Capture, { description: 'Deprecated name; same as createAttachmentCapture' })
   async createScreenshotCapture(@CurrentUserId() userId: string, @Args('input') input: CreateScreenshotCaptureInput) {
-    const created = await this.captureSvc.createScreenshot(userId, input.attachmentId, input.clientRequestId, input.note);
+    const created = await this.captureSvc.createFromAttachment(userId, input.attachmentId, input.clientRequestId, input.note, input.language);
     const r = await this.captureSvc.getWithAttachment(userId, created.id);
     return toCapture(r.capture, r.attachment);
   }

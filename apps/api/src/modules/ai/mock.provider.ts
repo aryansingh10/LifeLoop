@@ -45,12 +45,19 @@ const CATEGORY_RULES: Array<[Category, RegExp]> = [
 ];
 
 const INFORMATIONAL = /\b(otp|one[- ]time password|verification code|\d+% off|flat \d+%|sale|offer ends|newsletter|unsubscribe|congratulations|you have won)\b/i;
-const PENDING = /\b(not (?:yet )?(?:received|credited|arrived|reflected|delivered|resolved)|haven'?t|hasn'?t|yet to|pending|awaiting|waiting|will (?:call|send|share|visit|come|reach|update|get back|be (?:credited|delivered|processed|refunded|resolved))|promised|initiated|submitted|raised|registered|scheduled|expected|may take|need to|have to|must|please (?:submit|upload|send|provide|share)|due|nahi (?:aaya|mila))\b/i;
-const NOT_YET = /\b(not (?:yet )?(?:received|credited|arrived|reflected|delivered|resolved)|haven'?t|hasn'?t|yet to|still)\b/i;
+const PENDING = /\b(not (?:yet )?(?:received|credited|arrived|reflected|delivered|resolved)|haven'?t|hasn'?t|yet to|pending|awaiting|waiting|will (?:call|send|share|visit|come|reach|update|get back|be (?:credited|delivered|processed|refunded|resolved))|promised|initiated|submitted|raised|registered|scheduled|expected|may take|need to|have to|must|please (?:submit|upload|send|provide|share)|due|(?:nahi|nhi|nahin|nai) (?:aaya|aya|aayi|aai|mila|mili|hua|hui)|aane wala|aane wali|aayega|aayegi)\b/i;
+const NOT_YET = /\b(not (?:yet )?(?:received|credited|arrived|reflected|delivered|resolved)|haven'?t|hasn'?t|yet to|still|(?:nahi|nhi|nahin|nai) (?:aaya|aya|aayi|aai|mila|mili|hua|hui))\b/i;
+/** 2-7 digit amounts, optionally grouped (1,00,000 / 12,500) or with paise; avoids long IDs. */
+const MONEY_NUMBER = '(?:\\d{1,3}(?:,\\d{2,3})+|\\d{2,7})(?:\\.\\d{1,2})?';
+const MONEY_WORDS = 'refund|refunded|payment|paid|cashback|bill|amount|reimbursement|deposit|fees?|salary|emi|charges?|paise|paisa|rupaye|rupay';
 const USER_ACTION = /\b(?:i |you )?(?:need to|have to|must|please|kindly) (submit|upload|send|provide|share|pay|complete|sign|bring)\b[^.\n]{0,60}/i;
 
 const NUMBER_WORD = '(?:\\d{1,3}|one|two|three|four|five|six|seven|eight|nine|ten)';
+const TIME_OF_DAY = '\\d{1,2}(?:[:.]\\d{2})?\\s*(?:a\\.?\\s?m\\.?|p\\.?\\s?m\\.?)';
+const DAY_WORD = '(?:day after tomorrow|tomorrow|today|tonight|(?:on |this |next )?(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday))';
 const DEADLINE_RULES: Array<[RegExp, 'EXPLICIT' | 'ESTIMATED']> = [
+  // "at 2 p.m tomorrow", "tomorrow at 2pm", "on Friday at 10:30 am"
+  [new RegExp(`\\b(?:at |by )?${TIME_OF_DAY}\\s+(?:on\\s+)?${DAY_WORD}\\b|\\b${DAY_WORD}\\s+(?:at |by )?${TIME_OF_DAY}`, 'i'), 'EXPLICIT'],
   [new RegExp(`\\b${NUMBER_WORD} ?(?:-|to|–) ?${NUMBER_WORD} (?:business |working )?days?\\b`, 'i'), 'ESTIMATED'],
   [new RegExp(`\\b(?:within|in|next) ${NUMBER_WORD} (?:business |working )?(?:days?|hours?|weeks?)\\b`, 'i'), 'ESTIMATED'],
   [/\b\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}\b/, 'EXPLICIT'],
@@ -74,6 +81,54 @@ const NOUNS: Record<Category, string> = {
 };
 
 const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/** Words that end a name ("Dr Sharma at 5pm", "Rahul ne bola"). */
+const NAME_STOP = new Set([
+  'at', 'on', 'in', 'for', 'from', 'to', 'with', 'and', 'or', 'about', 'regarding', 'by', 'the', 'is', 'was', 'has', 'have', 'will', 'would',
+  'said', 'told', 'promised', 'today', 'tomorrow', 'tonight', 'yesterday', 'ki', 'ka', 'ke', 'ko', 'se', 'ne', 'ji', 'sir', 'madam', 'clinic', 'hospital',
+]);
+/** Capitalised words that are not names. */
+const NOT_A_NAME = new Set([
+  'I', 'The', 'My', 'Your', 'Our', 'Their', 'His', 'Her', 'He', 'She', 'They', 'We', 'You', 'It', 'This', 'That', 'Today', 'Tomorrow', 'Yesterday',
+  'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday', 'January', 'February', 'March', 'April', 'May', 'June', 'July',
+  'August', 'September', 'October', 'November', 'December', 'Customer', 'Support', 'Team', 'Dear', 'Hi', 'Hello', 'Please', 'Thanks', 'Thank',
+  'Refund', 'Order', 'Payment', 'Ticket', 'Bank', 'Mom', 'Dad',
+]);
+const TITLES = '(?:Dr|Doctor|Mr|Mrs|Ms|Miss|Prof|Professor|Adv|Advocate|Shri|Smt|Sri)';
+
+/**
+ * A person the user deals with, quoted verbatim as evidence:
+ *   "appointment with Dr. Vivek Gupta", "Rahul said he will send…", "waiting for a call from Priya Sharma".
+ */
+function findPerson(source: string): Extraction['counterparty'] {
+  // 1) Honorific + up to three words (works for lowercase too: "dr sharma").
+  const titled = find(source, new RegExp(`\\b${TITLES}\\b\\.?\\s+([A-Za-z][A-Za-z'-]*(?:\\s+[A-Za-z][A-Za-z'-]*){0,2})`, 'i'));
+  if (titled) {
+    const words = titled.groups[0].split(/\s+/);
+    const kept: string[] = [];
+    for (const w of words) {
+      if (NAME_STOP.has(w.toLowerCase())) break;
+      kept.push(w);
+    }
+    if (kept.length) {
+      const titleText = titled.text.slice(0, titled.text.length - titled.groups[0].length).trimEnd();
+      const evidence = `${titleText} ${kept.join(' ')}`.replace(/\s+/g, ' ');
+      if (source.includes(evidence)) {
+        const pretty = `${cap(titleText.toLowerCase().replace(/^doctor/, 'dr'))} ${kept.map((w) => cap(w)).join(' ')}`;
+        return { name: pretty.replace(/^(Dr|Mr|Mrs|Ms|Prof)(?!\.) /, '$1. '), evidence };
+      }
+    }
+  }
+  // 2) "Rahul said / promised / told me / will send…"
+  const speaker = find(source, /\b([A-Z][a-z]+(?:\s[A-Z][a-z]+)?)\s+(?:said|promised|told|will (?:send|call|share|pay|return|come|visit)|has promised|ne (?:bola|kaha))\b/);
+  if (speaker && !NOT_A_NAME.has(speaker.groups[0].split(' ')[0])) return { name: speaker.groups[0], evidence: speaker.groups[0] };
+  // 3) "with / from / by Priya Sharma" (capitalised names only, to avoid ordinary words)
+  for (const hit of findAll(source, /\b(?:with|from|by)\s+([A-Z][a-z]+(?:\s[A-Z][a-z]+){0,2})\b/g)) {
+    const words = hit.groups[0].split(' ').filter((w) => !NOT_A_NAME.has(w));
+    if (words.length && words.length === hit.groups[0].split(' ').length) return { name: hit.groups[0], evidence: hit.groups[0] };
+  }
+  return null;
+}
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 export function mockExtract(text: string): Extraction {
@@ -100,6 +155,11 @@ export function mockExtract(text: string): Extraction {
     const hit = find(text, /\b([A-Z][A-Za-z&]+(?: [A-Z][A-Za-z&]+)?) (service cent(?:er|re)|customer care|support team|bank|hospital|clinic)\b/);
     if (hit) counterparty = { name: hit.text, evidence: hit.text };
   }
+  let counterpartyIsPerson = false;
+  if (!counterparty) {
+    counterparty = findPerson(text);
+    counterpartyIsPerson = counterparty !== null;
+  }
 
   // Amount
   let amount: Extraction['amount'] = null;
@@ -108,6 +168,13 @@ export function mockExtract(text: string): Extraction {
   if (amountHit) {
     const value = /\d/.test(amountHit.groups[1]) ? amountHit.groups[1] : amountHit.groups[0];
     amount = { value, currency: 'INR', evidence: amountHit.text };
+  } else {
+    // A bare number right next to a money word: "500 ka refund", "refund of 1,200", "payment 750".
+    // No currency is written, so none is claimed (validation adds "Currency not stated").
+    const bare =
+      find(text, new RegExp(`\\b(${MONEY_NUMBER})\\s+(?:(?:ka|ki|ke|of|worth|wala|wali)\\s+){0,2}(?:${MONEY_WORDS})\\b`, 'i')) ??
+      find(text, new RegExp(`\\b(?:${MONEY_WORDS})\\s+(?:(?:of|ka|ki|ke|amount|for)\\s+){0,2}(${MONEY_NUMBER})\\b(?!\\s*(?:days?|din|hours?|weeks?|%))`, 'i'));
+    if (bare) amount = { value: bare.groups[0], currency: null, evidence: bare.text };
   }
 
   // Identifiers
@@ -148,7 +215,7 @@ export function mockExtract(text: string): Extraction {
     case 'REFUND':
     case 'REIMBURSEMENT':
       if (!notYet) stage('REFUND_COMPLETED', /\b(?:successfully (?:refunded|processed|credited)|(?:has been|was|been) (?:processed|credited|completed)|refund(?:ed)? (?:of [^.\n]{0,30})?(?:is |has been )?(?:processed|credited|completed))\b/i);
-      stage('REFUND_INITIATED', /\b(?:refund[^.\n]{0,40}(?:initiated|pending|processing)|initiated[^.\n]{0,40}refund|not (?:yet )?(?:received|credited|reflected)|(?:haven'?t|hasn'?t) (?:received|got)[^.\n]{0,20})/i);
+      stage('REFUND_INITIATED', /\b(?:refund[^.\n]{0,40}(?:initiated|pending|processing)|initiated[^.\n]{0,40}refund|not (?:yet )?(?:received|credited|reflected)|(?:haven'?t|hasn'?t) (?:received|got)[^.\n]{0,20}|refund[^.\n]{0,30}(?:aane wala|aane wali|aayega|aayegi)|(?:nahi|nhi|nahin|nai) (?:aaya|aya|aayi|aai|mila|mili))/i);
       break;
     case 'PAYMENT':
       stage('PAYMENT_FAILED', /\b(?:payment|transaction)[^.\n]{0,30}(?:failed|declined|unsuccessful)\b/i);
@@ -221,9 +288,14 @@ export function mockExtract(text: string): Extraction {
 
   // Title / summary / next action
   const noun = category ? NOUNS[category] : null;
-  const amountDisplay = amount ? `₹${amount.value}` : '';
+  // Only show ₹ when the text itself says rupees.
+  const amountDisplay = amount ? (amount.currency === 'INR' ? `₹${amount.value}` : amount.value) : '';
   let title: string;
-  if (noun && category !== 'OTHER') {
+  if (noun && category !== 'OTHER' && counterparty && counterpartyIsPerson) {
+    // People read better after the noun: "Appointment with Dr. Vivek Gupta", "Document from Rahul".
+    const link = category === 'APPOINTMENT' ? 'with' : waitingOn === 'USER' ? 'for' : 'from';
+    title = [`${cap(noun)} ${link} ${counterparty.name}`, amountDisplay].filter(Boolean).join(' ');
+  } else if (noun && category !== 'OTHER') {
     title = [counterparty?.name, counterparty ? noun : cap(noun), amountDisplay].filter(Boolean).join(' ');
   } else {
     title = text.split(/[.\n]/)[0].slice(0, 60).trim() || 'Untitled';

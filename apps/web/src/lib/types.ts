@@ -63,6 +63,8 @@ export interface CaseEvent {
 
 export interface Attachment {
   id: string;
+  kind: 'IMAGE' | 'AUDIO';
+  durationMs: number | null;
   url: string;
   width: number | null;
   height: number | null;
@@ -77,6 +79,7 @@ export interface Capture {
   editedText: string | null;
   ocrConfidence: number | null;
   note: string | null;
+  language: string | null;
   failureCode: string | null;
   attachment: Attachment | null;
   createdAt: string;

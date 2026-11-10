@@ -126,7 +126,7 @@ export default function CaseDetailPage() {
                 {e.note && <p className="mt-0.5 text-sm whitespace-pre-wrap text-stone-600 dark:text-stone-300">{e.note}</p>}
                 {cap && (
                   <Link href={`/captures/${cap.id}`} className="mt-1 block rounded-xl border border-stone-200 p-2 text-xs text-stone-600 hover:border-brand-500 dark:border-stone-700 dark:text-stone-300">
-                    {cap.attachment ? '📷 Screenshot' : '💬'} {(cap.editedText ?? cap.extractedText ?? '').slice(0, 140)}
+                    {cap.attachment?.kind === 'AUDIO' ? '🎤 Voice note' : cap.attachment ? '📷 Screenshot' : '💬'} {(cap.editedText ?? cap.extractedText ?? '').slice(0, 140)}
                     {(cap.editedText ?? cap.extractedText ?? '').length > 140 && '…'}
                   </Link>
                 )}

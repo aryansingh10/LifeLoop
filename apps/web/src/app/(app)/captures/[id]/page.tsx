@@ -56,8 +56,18 @@ export default function CapturePage() {
         <div className="card flex items-center gap-3 p-6">
           <Spinner className="h-5 w-5 text-brand-600" />
           <div>
-            <p className="font-medium">{c.status === 'PREPROCESSING' ? 'Reading your screenshot…' : 'Working out what needs to happen next…'}</p>
-            <p className="text-sm text-stone-500">This usually takes a few seconds{c.source === 'SCREENSHOT' ? ' (the first screenshot can take longer)' : ''}.</p>
+            <p className="font-medium">
+              {c.status !== 'PREPROCESSING'
+                ? 'Working out what needs to happen next…'
+                : c.source === 'VOICE'
+                  ? 'Transcribing your voice note…'
+                  : 'Reading your screenshot…'}
+            </p>
+            <p className="text-sm text-stone-500">
+              {c.source === 'VOICE'
+                ? 'Usually a few seconds per 10 seconds of audio (the very first voice note also downloads the speech model, about a minute).'
+                : `This usually takes a few seconds${c.source === 'SCREENSHOT' ? ' (the first screenshot can take longer)' : ''}.`}
+            </p>
           </div>
         </div>
       )}
@@ -75,9 +85,19 @@ export default function CapturePage() {
 
       {c.attachment && (
         <div className="card p-4">
-          <span className="label">Screenshot</span>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={c.attachment.url} alt="Uploaded screenshot" className="max-h-96 rounded-lg border border-stone-200 dark:border-stone-700" />
+          {c.attachment.kind === 'AUDIO' ? (
+            <>
+              <span className="label">Voice note</span>
+              <audio controls src={c.attachment.url} className="w-full max-w-md" />
+              {c.language === 'hi' && <p className="mt-2 text-xs text-stone-500">Spoken in Hindi/Hinglish — the text below is an English translation.</p>}
+            </>
+          ) : (
+            <>
+              <span className="label">Screenshot</span>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={c.attachment.url} alt="Uploaded screenshot" className="max-h-96 rounded-lg border border-stone-200 dark:border-stone-700" />
+            </>
+          )}
           {c.note && <p className="mt-2 text-sm text-stone-600 dark:text-stone-300">Note: {c.note}</p>}
         </div>
       )}
@@ -107,7 +127,7 @@ export default function CapturePage() {
             <SuggestionReview suggestion={c.suggestion} sourceText={text} onDone={refresh} />
             {c.suggestion.status === 'PENDING' && text && (
               <button className="text-sm text-stone-500 hover:underline" onClick={() => { setDraft(text); setEditing(true); }}>
-                {c.source === 'SCREENSHOT' ? 'Text wrong? Correct it and re-check' : 'Edit the text and re-check'}
+                {c.source === 'SCREENSHOT' || c.source === 'VOICE' ? 'Text wrong? Correct it and re-check' : 'Edit the text and re-check'}
               </button>
             )}
           </>

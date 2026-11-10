@@ -10,6 +10,7 @@ import { JobQueue } from '../jobs/job-queue.service.js';
 
 export const JOB_OCR = 'capture.ocr';
 export const JOB_EXTRACT = 'capture.extract';
+export const JOB_TRANSCRIBE = 'capture.transcribe';
 
 @Injectable()
 export class CapturesService {
@@ -81,24 +82,34 @@ export class CapturesService {
     return this.get(userId, id);
   }
 
-  async createScreenshot(userId: string, attachmentId: string, clientRequestId: string, note?: string | null): Promise<CaptureRow> {
+  /** Screenshot -> OCR job; voice note -> transcription job. Both then flow into extraction. */
+  async createFromAttachment(
+    userId: string,
+    attachmentId: string,
+    clientRequestId: string,
+    note?: string | null,
+    language?: string | null,
+  ): Promise<CaptureRow> {
     if (!UUID_RE.test(clientRequestId)) throw new BadRequestException('clientRequestId must be a UUID');
     const prior = await this.existing(userId, clientRequestId);
     if (prior) return prior;
     const attachment = await this.attachments.get(userId, attachmentId); // ownership check
+    const voice = attachment.kind === 'AUDIO';
     const id = uuidv7();
     await this.db.transaction(async (tx) => {
       await tx.insert(captures).values({
         id,
         userId,
-        source: 'SCREENSHOT',
+        source: voice ? 'VOICE' : 'SCREENSHOT',
         attachmentId: attachment.id,
         note: note?.trim().slice(0, 500) || null,
-        contentHash: sha256(`img:${attachment.sha256}`),
+        language: voice ? (language === 'hi' ? 'hi' : 'en') : null,
+        contentHash: sha256(`${voice ? 'audio' : 'img'}:${attachment.sha256}`),
         clientRequestId,
         status: 'PREPROCESSING',
       });
-      await this.jobs.enqueue(JOB_OCR, { captureId: id, userId }, { tx, dedupeKey: `ocr:${id}:0`, maxAttempts: 3, userId });
+      const job = voice ? JOB_TRANSCRIBE : JOB_OCR;
+      await this.jobs.enqueue(job, { captureId: id, userId }, { tx, dedupeKey: `${job}:${id}:0`, maxAttempts: 3, userId });
     });
     return this.get(userId, id);
   }
@@ -123,15 +134,16 @@ export class CapturesService {
   async retry(userId: string, id: string): Promise<CaptureRow> {
     const capture = await this.get(userId, id);
     if (capture.status !== 'FAILED') throw new ConflictException('Only failed captures can be retried');
-    const needsOcr = capture.source === 'SCREENSHOT' && !capture.normalizedText;
+    const needsText = (capture.source === 'SCREENSHOT' || capture.source === 'VOICE') && !capture.normalizedText;
+    const job = !needsText ? JOB_EXTRACT : capture.source === 'VOICE' ? JOB_TRANSCRIBE : JOB_OCR;
     await this.db.transaction(async (tx) => {
       await tx
         .update(captures)
-        .set({ status: needsOcr ? 'PREPROCESSING' : 'EXTRACTING', failureCode: null })
+        .set({ status: needsText ? 'PREPROCESSING' : 'EXTRACTING', failureCode: null })
         .where(and(eq(captures.id, id), eq(captures.userId, userId)));
-      await this.jobs.enqueue(needsOcr ? JOB_OCR : JOB_EXTRACT, { captureId: id, userId }, {
+      await this.jobs.enqueue(job, { captureId: id, userId }, {
         tx,
-        dedupeKey: `${needsOcr ? 'ocr' : 'extract'}:${id}:${uuidv7()}`,
+        dedupeKey: `${job}:${id}:${uuidv7()}`,
         maxAttempts: 4,
         userId,
       });

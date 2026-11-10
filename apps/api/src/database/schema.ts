@@ -128,7 +128,7 @@ export const attachments = mysqlTable(
     userId: id('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    kind: varchar('kind', { length: 16 }).notNull(), // IMAGE
+    kind: varchar('kind', { length: 16 }).notNull(), // IMAGE | AUDIO
     storageKey: varchar('storage_key', { length: 255 }).notNull(),
     originalMime: varchar('original_mime', { length: 64 }).notNull(),
     storedMime: varchar('stored_mime', { length: 64 }).notNull(),
@@ -136,6 +136,7 @@ export const attachments = mysqlTable(
     sha256: char('sha256', { length: 64 }).notNull(),
     width: int('width'),
     height: int('height'),
+    durationMs: int('duration_ms'), // audio only
     createdAt: createdAt(),
   },
   (t) => [index('attachments_user_idx').on(t.userId), index('attachments_user_sha_idx').on(t.userId, t.sha256)],
@@ -149,7 +150,9 @@ export const captures = mysqlTable(
     userId: id('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    source: varchar('source', { length: 16 }).notNull(), // TEXT | PASTE | SCREENSHOT
+    source: varchar('source', { length: 16 }).notNull(), // TEXT | PASTE | SCREENSHOT | VOICE
+    /** Voice notes: language spoken ('en' transcribed as-is, 'hi' = Hindi/Hinglish translated to English). */
+    language: varchar('language', { length: 8 }),
     rawText: mediumtext('raw_text'),
     attachmentId: id('attachment_id').references(() => attachments.id, { onDelete: 'set null' }),
     note: varchar('note', { length: 500 }),

@@ -177,9 +177,28 @@ function shift(ref: YMD, n: number, business: string | undefined, unit: string):
 }
 
 /** Future-facing date (deadline): end of business day 18:00 local. */
+/** "2 pm", "2 p.m", "10:30 AM", "14:30" -> 24h hour/minute. Null when no time of day is stated. */
+export function parseTimeOfDay(expression: string): { hour: number; minute: number } | null {
+  const m = expression.match(/\b(\d{1,2})(?:[:.](\d{2}))?\s*(a\.?\s?m\.?|p\.?\s?m\.?)(?=\s|$|[,;!?])/i);
+  if (m) {
+    let hour = Number(m[1]);
+    const minute = m[2] ? Number(m[2]) : 0;
+    if (hour < 1 || hour > 12 || minute > 59) return null;
+    const pm = m[3].toLowerCase().startsWith('p');
+    if (pm && hour !== 12) hour += 12;
+    if (!pm && hour === 12) hour = 0;
+    return { hour, minute };
+  }
+  const h24 = expression.match(/\b(?:at|by)\s+([01]?\d|2[0-3]):([0-5]\d)\b/i);
+  return h24 ? { hour: Number(h24[1]), minute: Number(h24[2]) } : null;
+}
+
+/** Future-facing date (deadline/appointment): the stated time, else end of business day 18:00 local. */
 export function resolveDeadline(expression: string, reference: Date, timeZone: string): ResolvedDate | null {
   const r = resolveYmd(expression, localDate(reference, timeZone), 'future');
-  return r ? { date: zonedToUtc(r.ymd, 18, 0, timeZone), kind: r.kind } : null;
+  if (!r) return null;
+  const time = parseTimeOfDay(expression);
+  return { date: zonedToUtc(r.ymd, time?.hour ?? 18, time?.minute ?? 0, timeZone), kind: r.kind };
 }
 
 /** Past-facing date (when something happened): noon local. */

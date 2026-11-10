@@ -12,7 +12,7 @@ import type { Capture, Dashboard } from '@/lib/types';
 type CaptureListItem = Capture & { suggestion: { id: string; kind: string; status: string; confidenceBand: string; proposed: { title: string } } | null };
 
 const CAPTURE_STATUS: Record<string, string> = {
-  PREPROCESSING: 'Reading image…',
+  PREPROCESSING: 'Reading…',
   EXTRACTING: 'Processing…',
   NEEDS_REVIEW: 'Ready to review',
   NO_COMMITMENT: 'Nothing to track',
@@ -86,9 +86,9 @@ export default function DashboardPage() {
                 <Link href={`/captures/${c.id}`} className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-stone-50 dark:hover:bg-stone-800/50">
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-medium">
-                      {c.suggestion?.proposed.title ?? c.rawText ?? c.note ?? (c.source === 'SCREENSHOT' ? 'Screenshot' : 'Capture')}
+                      {c.suggestion?.proposed.title ?? c.rawText ?? c.note ?? (c.source === 'SCREENSHOT' ? 'Screenshot' : c.source === 'VOICE' ? 'Voice note' : 'Capture')}
                     </span>
-                    <span className="text-xs text-stone-500">{c.source === 'SCREENSHOT' ? 'Screenshot' : c.source === 'PASTE' ? 'Pasted' : 'Typed'} · {timeAgo(c.createdAt)}</span>
+                    <span className="text-xs text-stone-500">{c.source === 'SCREENSHOT' ? 'Screenshot' : c.source === 'VOICE' ? 'Voice note' : c.source === 'PASTE' ? 'Pasted' : 'Typed'} · {timeAgo(c.createdAt)}</span>
                   </span>
                   <span className={`chip shrink-0 ${c.status === 'NEEDS_REVIEW' && c.suggestion?.status === 'PENDING' ? 'bg-brand-50 text-brand-700 dark:bg-brand-700/20 dark:text-brand-100' : c.status === 'FAILED' ? 'bg-red-100 text-red-700' : 'bg-stone-100 text-stone-600 dark:bg-stone-800 dark:text-stone-300'}`}>
                     {(c.status === 'EXTRACTING' || c.status === 'PREPROCESSING') && <Spinner className="h-3 w-3" />}

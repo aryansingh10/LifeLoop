@@ -134,6 +134,41 @@ describe('mock extraction end-to-end with validation', () => {
     expect(p.deadline?.kind).toBe('EXPLICIT');
   });
 
+  it('Hinglish refund with a bare amount: picks 500, does not invent a currency', () => {
+    const { p } = run('Flipkart ka 500 ka refund aane wala tha abhi tk nhi aaya');
+    expect(p.amount?.amountMinor).toBe(50_000);
+    expect(p.amount?.currency).toBeNull();
+    expect(p.uncertainties).toContain('Currency not stated');
+    expect(p.title).toBe('Flipkart refund 500');
+    expect(p.lifecycleStage).toBe('REFUND_INITIATED');
+    expect(p.classification).toBe('WAITING_PAYMENT');
+  });
+
+  it('bare amounts: "refund of 1,200" yes; days, long order numbers and percentages no', () => {
+    expect(run('Myntra refund of 1,200 is still pending').p.amount?.amountMinor).toBe(120_000);
+    expect(run('Refund will come within 5 days, payment 3 din me').p.amount).toBeNull();
+    expect(run('Refund for order 40312345678 is pending').p.amount).toBeNull();
+    expect(run('Amazon refund ₹2,499 pending').p.amount?.currency).toBe('INR'); // explicit symbol still wins
+  });
+
+  it('appointment with a doctor: person, time and a reminder before it', () => {
+    // NOW is Sat 7 Nov 2026, 15:30 IST
+    const { p } = run('I have an appointment with Dr. Vivek Gopta at 2 p.m tomorrow.');
+    expect(p.counterparty?.name).toBe('Dr. Vivek Gopta');
+    expect(p.title).toBe('Appointment with Dr. Vivek Gopta');
+    expect(p.deadline?.kind).toBe('EXPLICIT');
+    expect(new Date(p.deadline!.at).toISOString()).toBe('2026-11-08T08:30:00.000Z'); // 2 PM IST tomorrow
+    expect(new Date(p.suggestedFollowupAt!).toISOString()).toBe('2026-11-08T06:30:00.000Z'); // 2 hours before
+  });
+
+  it('finds people in other phrasings, without mistaking ordinary words for names', () => {
+    expect(run('appointment with dr sharma tomorrow at 5 pm').p.counterparty?.name).toBe('Dr. Sharma');
+    expect(run('Rahul said he will send the rent agreement by Friday').p.counterparty?.name).toBe('Rahul');
+    expect(run('Waiting for a call back from Priya Sharma about the documents').p.counterparty?.name).toBe('Priya Sharma');
+    expect(run('Waiting for the refund from Monday onwards').p.counterparty).toBeNull();
+    expect(run('Amazon refund of ₹499 is pending').p.counterparty?.name).toBe('Amazon'); // companies still win
+  });
+
   it('OTP / promotional message is informational', () => {
     const { p } = run('Your OTP for login is 482913. Do not share it with anyone.');
     expect(p.classification).toBe('INFORMATIONAL');

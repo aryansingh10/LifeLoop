@@ -24,7 +24,7 @@ Rules — correctness matters more than completeness:
 
 export function buildUserPrompt(req: ExtractionRequest): string {
   return `Saved at: ${req.capturedAtLocal} (${req.timeZone})
-Source: ${req.sourceKind === 'SCREENSHOT' ? 'text recognized from a screenshot (may contain OCR errors and app UI noise)' : req.sourceKind === 'PASTE' ? 'pasted email or message' : 'typed by the user'}
+Source: ${req.sourceKind === 'SCREENSHOT' ? 'text recognized from a screenshot (may contain OCR errors and app UI noise)' : req.sourceKind === 'VOICE' ? `transcript of a voice note (may mishear names and numbers)${req.translated ? ', translated to English from Hindi/Hinglish speech' : ''}` : req.sourceKind === 'PASTE' ? 'pasted email or message' : 'typed by the user'}
 
 <message>
 ${req.text}

@@ -79,6 +79,8 @@ export const FAILURE_MESSAGES: Record<string, string> = {
   AI_OUTPUT_INVALID: "We couldn't understand this one. Try rewording it.",
   EXTRACTION_FAILED: 'Processing failed. Please retry.',
   OCR_FAILED: "We couldn't read this image. Please retry.",
+  NO_SPEECH_FOUND: "We couldn't hear any speech in this voice note. Try recording again closer to the microphone.",
+  TRANSCRIBE_FAILED: "We couldn't transcribe this voice note. Please retry.",
 };
 
 /** Today's date as an <input type="date"> value: the earliest allowed reminder date. */

@@ -29,6 +29,13 @@
       "when": 1794204311510,
       "tag": "0003_email_verification",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1794234151778,
+      "tag": "0004_voice_notes",
+      "breakpoints": true
     }
   ]
 }

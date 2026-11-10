@@ -109,6 +109,8 @@ export class CaseIdentifier {
 @ObjectType()
 export class Attachment {
   @Field(() => ID) id: string;
+  @Field({ description: 'IMAGE or AUDIO' }) kind: string;
+  @Field(() => Int, { nullable: true, description: 'Audio length in milliseconds' }) durationMs: number | null;
   @Field() mimeType: string;
   @Field(() => Int) sizeBytes: number;
   @Field(() => Int, { nullable: true }) width: number | null;
@@ -128,6 +130,7 @@ export class Capture {
   @Field(() => String, { nullable: true }) editedText: string | null;
   @Field(() => Float, { nullable: true }) ocrConfidence: number | null;
   @Field(() => String, { nullable: true }) note: string | null;
+  @Field(() => String, { nullable: true, description: "Voice notes: 'en', or 'hi' (Hindi/Hinglish, translated to English)" }) language: string | null;
   @Field(() => String, { nullable: true }) failureCode: string | null;
   @Field(() => Attachment, { nullable: true }) attachment: Attachment | null;
   @Field(() => GraphQLISODateTime) createdAt: Date;
@@ -227,6 +230,7 @@ export class CreateScreenshotCaptureInput {
   @Field(() => ID) attachmentId: string;
   @Field(() => ID) clientRequestId: string;
   @Field(() => String, { nullable: true }) note?: string | null;
+  @Field(() => String, { nullable: true, description: "Voice notes only: 'en' (default) or 'hi'" }) language?: string | null;
 }
 
 @InputType()

@@ -3,19 +3,21 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
-    "dev": "nest start --watch",
+    "dev": "tsc -p tsconfig.build.json && concurrently -k -n tsc,node -c gray,blue \"tsc -p tsconfig.build.json -w --preserveWatchOutput\" \"node --watch-path=dist --watch dist/main.js\"",
     "build": "nest build",
     "start": "node dist/main.js",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node scripts/migrate.mjs",
     "test": "vitest run",
-    "e2e": "node scripts/e2e.mjs"
+    "e2e": "node scripts/e2e.mjs",
+    "dev:nest": "nest start --watch"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.6.0",
     "@apollo/server": "^5.5.1",
     "@as-integrations/express5": "^1.1.2",
+    "@huggingface/transformers": "^4.3.2",
     "@nestjs/apollo": "^14.2.0",
     "@nestjs/common": "^12.4.0",
     "@nestjs/core": "^12.4.0",

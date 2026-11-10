@@ -14,8 +14,8 @@ const PROPOSAL = `
 `;
 
 const CAPTURE = `
-  id source status rawText extractedText editedText ocrConfidence note failureCode createdAt
-  attachment { id url width height }
+  id source status rawText extractedText editedText ocrConfidence note language failureCode createdAt
+  attachment { id kind url width height durationMs }
 `;
 
 export const SUGGESTION = `
@@ -43,7 +43,7 @@ export const CAPTURES = `query Captures { captures(limit: 20) { ${CAPTURE} sugge
 export const CAPTURE_DETAIL = `query Capture($id: ID!) { capture(id: $id) { ${CAPTURE} suggestion { ${SUGGESTION} } } }`;
 
 export const CREATE_TEXT_CAPTURE = `mutation CreateText($input: CreateTextCaptureInput!) { createTextCapture(input: $input) { id status } }`;
-export const CREATE_SCREENSHOT_CAPTURE = `mutation CreateShot($input: CreateScreenshotCaptureInput!) { createScreenshotCapture(input: $input) { id status } }`;
+export const CREATE_ATTACHMENT_CAPTURE = `mutation CreateFromAttachment($input: CreateScreenshotCaptureInput!) { createAttachmentCapture(input: $input) { id status } }`;
 export const REPROCESS_CAPTURE = `mutation Reprocess($id: ID!, $text: String!) { reprocessCapture(id: $id, editedText: $text) { id status } }`;
 export const RETRY_CAPTURE = `mutation Retry($id: ID!) { retryCapture(id: $id) { id status } }`;
 

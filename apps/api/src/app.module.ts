@@ -21,6 +21,7 @@ import { CasesService } from './modules/cases/cases.service.js';
 import { ExtractionModule } from './modules/extraction/extraction.module.js';
 import { JobsModule } from './modules/jobs/jobs.module.js';
 import { OcrService } from './modules/ocr/ocr.service.js';
+import { TranscriptionService } from './modules/transcription/transcription.service.js';
 import { ProcessingService } from './modules/processing/processing.service.js';
 import { LocalDiskStorage } from './modules/storage/storage.service.js';
 import { SuggestionsService } from './modules/suggestions/suggestions.service.js';
@@ -94,6 +95,7 @@ function formatError(formatted: GraphQLFormattedError, error: unknown): GraphQLF
     CasesService,
     SuggestionsService,
     OcrService,
+    TranscriptionService,
     ProcessingService,
     CapturesResolver,
     SuggestionsResolver,

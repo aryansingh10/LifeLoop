@@ -8,8 +8,9 @@ export interface ExtractionInput {
   text: string;
   capturedAt: Date;
   timeZone: string;
-  sourceKind: 'TEXT' | 'PASTE' | 'SCREENSHOT';
+  sourceKind: 'TEXT' | 'PASTE' | 'SCREENSHOT' | 'VOICE';
   ocrConfidence?: number | null;
+  translated?: boolean;
 }
 
 export type ExtractionOutcome =
@@ -36,6 +37,7 @@ export class ExtractionService {
       capturedAtLocal: formatLocal(input.capturedAt, input.timeZone),
       timeZone: input.timeZone,
       sourceKind: input.sourceKind,
+      translated: input.translated,
     };
 
     // One repair attempt if the output does not match the schema.

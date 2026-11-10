@@ -11,6 +11,8 @@ const EnvSchema = z.object({
   AI_MODEL: z.string().default('claude-haiku-5-5'),
   ANTHROPIC_API_KEY: z.string().optional(),
   OCR_LANGS: z.string().default('eng'),
+  /** Local Whisper model for voice notes (downloaded once). whisper-small is more accurate for Hindi but slower. */
+  WHISPER_MODEL: z.string().default('onnx-community/whisper-base'),
   STORAGE_DIR: z.string().default('./storage'),
   WORKER_ENABLED: z
     .string()

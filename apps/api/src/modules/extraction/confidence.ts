@@ -23,7 +23,7 @@ export interface Confidence {
 }
 
 export interface SourceInfo {
-  kind: 'TEXT' | 'PASTE' | 'SCREENSHOT';
+  kind: 'TEXT' | 'PASTE' | 'SCREENSHOT' | 'VOICE';
   ocrConfidence?: number | null; // 0..100
   length: number;
 }
@@ -41,6 +41,7 @@ export function scoreConfidence(v: ValidationResult, source: SourceInfo): Confid
 
   let quality = 1;
   if (source.kind === 'SCREENSHOT') quality = Math.min(1, Math.max(0, (source.ocrConfidence ?? 50) / 100));
+  if (source.kind === 'VOICE') quality = 0.8; // transcription can mishear names and numbers
   if (source.length < 30) quality *= 0.5;
 
   const specifics = Math.min(1, (p.amount ? 0.4 : 0) + (p.identifiers.length ? 0.4 : 0) + (p.deadline || p.eventDate ? 0.2 : 0));
@@ -50,7 +51,7 @@ export function scoreConfidence(v: ValidationResult, source: SourceInfo): Confid
     { key: 'responsibility', label: 'Clear who is responsible', weight: 0.15, value: responsibility, detail: p.waitingOn === 'UNKNOWN' ? 'Unknown who acts next' : p.counterparty ? `Waiting on ${p.counterparty.name}` : p.waitingOn === 'USER' ? 'You need to act' : 'Party not named' },
     { key: 'status', label: 'Explicit status', weight: 0.15, value: status, detail: p.lifecycleStage ?? 'No explicit status' },
     { key: 'integrity', label: 'Evidence checks', weight: 0.2, value: integrity, detail: v.stripped.length ? `${v.stripped.length} unsupported value(s) removed` : 'Every value found in the text' },
-    { key: 'quality', label: 'Source quality', weight: 0.1, value: quality, detail: source.kind === 'SCREENSHOT' ? `OCR confidence ${Math.round(source.ocrConfidence ?? 0)}%` : source.length < 30 ? 'Very short input' : 'Typed text' },
+    { key: 'quality', label: 'Source quality', weight: 0.1, value: quality, detail: source.kind === 'SCREENSHOT' ? `OCR confidence ${Math.round(source.ocrConfidence ?? 0)}%` : source.kind === 'VOICE' ? 'Voice note (transcribed)' : source.length < 30 ? 'Very short input' : 'Typed text' },
     { key: 'specifics', label: 'Specific details', weight: 0.1, value: specifics, detail: [p.amount && 'amount', p.identifiers.length && 'reference', (p.deadline || p.eventDate) && 'date'].filter(Boolean).join(', ') || 'None' },
   ];
 

@@ -201,8 +201,15 @@ export function validateExtraction(raw: Extraction, ctx: ValidationContext): Val
   if (isCommitment) {
     if (deadline) {
       const at = new Date(deadline.at);
-      const dayBefore = new Date(at.getTime() - 24 * 3600 * 1000);
-      suggestedFollowupAt = (deadline.kind === 'EXPLICIT' && dayBefore > ctx.capturedAt ? dayBefore : at).toISOString();
+      const H = 3600 * 1000;
+      if (deadline.kind === 'EXPLICIT') {
+        // A day ahead if there's time; otherwise a couple of hours before (e.g. tomorrow's 2 PM appointment).
+        const dayBefore = new Date(at.getTime() - 24 * H);
+        const twoHoursBefore = new Date(at.getTime() - 2 * H);
+        suggestedFollowupAt = (dayBefore.getTime() > now.getTime() + H ? dayBefore : twoHoursBefore > now ? twoHoursBefore : at).toISOString();
+      } else {
+        suggestedFollowupAt = at.toISOString(); // estimated: check in when it's expected
+      }
     } else if (raw.category && raw.category !== 'APPOINTMENT') {
       suggestedFollowupAt = followUpAfter(DEFAULT_FOLLOWUP_DAYS[raw.category] ?? 3, ctx.capturedAt, ctx.timeZone).toISOString();
     }

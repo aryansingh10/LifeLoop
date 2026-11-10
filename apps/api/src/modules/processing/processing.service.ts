@@ -6,7 +6,8 @@ import { InjectDb, type DB } from '../../database/database.module.js';
 import { attachments, captures, extractionRuns, suggestions, users, type CaptureRow } from '../../database/schema.js';
 import { RetryableAiError } from '../ai/anthropic.provider.js';
 import { CasesService } from '../cases/cases.service.js';
-import { JOB_EXTRACT, JOB_OCR } from '../captures/captures.service.js';
+import { JOB_EXTRACT, JOB_OCR, JOB_TRANSCRIBE } from '../captures/captures.service.js';
+import { TranscriptionService } from '../transcription/transcription.service.js';
 import { ExtractionService } from '../extraction/extraction.service.js';
 import { JobHandlerRegistry, NonRetryableError } from '../jobs/job-handlers.js';
 import { JobQueue } from '../jobs/job-queue.service.js';
@@ -32,6 +33,7 @@ export class ProcessingService implements OnModuleInit {
     private readonly jobs: JobQueue,
     private readonly storage: LocalDiskStorage,
     private readonly ocr: OcrService,
+    private readonly transcription: TranscriptionService,
     private readonly extraction: ExtractionService,
     private readonly cases: CasesService,
     private readonly suggestions: SuggestionsService,
@@ -45,6 +47,43 @@ export class ProcessingService implements OnModuleInit {
     this.registry.register(JOB_EXTRACT, {
       handle: (p) => this.runExtract(String(p.captureId), String(p.userId)),
       onDead: (p, err) => this.fail(String(p.captureId), String(p.userId), err instanceof NonRetryableError ? err.code : 'EXTRACTION_FAILED'),
+    });
+    this.registry.register(JOB_TRANSCRIBE, {
+      handle: (p) => this.runTranscribe(String(p.captureId), String(p.userId)),
+      onDead: (p, err) => this.fail(String(p.captureId), String(p.userId), err instanceof NonRetryableError ? err.code : 'TRANSCRIBE_FAILED'),
+    });
+  }
+
+  /** Voice note -> text (local Whisper), then the same extraction pipeline as typed text. */
+  async runTranscribe(captureId: string, userId: string) {
+    const capture = await this.loadCapture(captureId, userId);
+    if (!capture || capture.status !== 'PREPROCESSING') return; // already handled (idempotent)
+    if (!capture.attachmentId) throw new NonRetryableError('Capture has no audio', 'NO_ATTACHMENT');
+    const [attachment] = await this.db.select().from(attachments).where(and(eq(attachments.id, capture.attachmentId), eq(attachments.userId, userId)));
+    if (!attachment || attachment.kind !== 'AUDIO') throw new NonRetryableError('Audio missing', 'NO_ATTACHMENT');
+
+    const started = Date.now();
+    const result = await this.transcription.transcribe(await this.storage.get(attachment.storageKey), capture.language === 'hi' ? 'hi' : 'en');
+    const runId = uuidv7();
+    await this.db.transaction(async (tx) => {
+      await tx.insert(extractionRuns).values({
+        id: runId,
+        captureId,
+        userId,
+        stage: 'TRANSCRIBE',
+        provider: 'whisper-local',
+        model: result.model,
+        inputHash: attachment.sha256,
+        validatedOutput: { textLength: result.text.length, language: capture.language, translated: result.translated, durationMs: attachment.durationMs },
+        latencyMs: Date.now() - started,
+        status: result.text.length >= 3 ? 'SUCCEEDED' : 'INVALID',
+      });
+      if (result.text.length < 3) {
+        await tx.update(captures).set({ status: 'FAILED', failureCode: 'NO_SPEECH_FOUND' }).where(eq(captures.id, captureId));
+        return;
+      }
+      await tx.update(captures).set({ normalizedText: result.text, status: 'EXTRACTING' }).where(eq(captures.id, captureId));
+      await this.jobs.enqueue(JOB_EXTRACT, { captureId, userId }, { tx, dedupeKey: `extract:${captureId}:asr-${runId}`, maxAttempts: 4, userId });
     });
   }
 
@@ -157,7 +196,8 @@ export class ProcessingService implements OnModuleInit {
         text,
         capturedAt: capture.createdAt,
         timeZone,
-        sourceKind: capture.source as 'TEXT' | 'PASTE' | 'SCREENSHOT',
+        sourceKind: capture.source as 'TEXT' | 'PASTE' | 'SCREENSHOT' | 'VOICE',
+        translated: capture.language === 'hi',
         ocrConfidence: capture.ocrConfidence,
       });
     } catch (err) {

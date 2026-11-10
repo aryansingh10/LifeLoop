@@ -4,7 +4,9 @@ export interface ExtractionRequest {
   /** Capture time in the user's timezone, e.g. "Saturday, 8 November 2026, 10:30" — lets the model read "yesterday". */
   capturedAtLocal: string;
   timeZone: string;
-  sourceKind: 'TEXT' | 'PASTE' | 'SCREENSHOT';
+  sourceKind: 'TEXT' | 'PASTE' | 'SCREENSHOT' | 'VOICE';
+  /** Voice note spoken in Hindi/Hinglish and translated to English by the transcriber. */
+  translated?: boolean;
 }
 
 export interface ExtractionResponse {

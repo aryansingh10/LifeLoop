@@ -35,6 +35,8 @@ export function toCase(row: CaseRow): Case {
 export function toAttachment(row: AttachmentRow): Attachment {
   return {
     id: row.id,
+    kind: row.kind,
+    durationMs: row.durationMs,
     mimeType: row.storedMime,
     sizeBytes: row.sizeBytes,
     width: row.width,
@@ -53,6 +55,7 @@ export function toCapture(row: CaptureRow, attachment?: AttachmentRow | null): C
     editedText: row.editedText,
     ocrConfidence: row.ocrConfidence,
     note: row.note,
+    language: row.language,
     failureCode: row.failureCode,
     attachment: attachment ? toAttachment(attachment) : null,
     createdAt: row.createdAt,

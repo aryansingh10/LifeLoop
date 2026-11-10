@@ -9,6 +9,7 @@ Personal follow-through tracker: share a message, email or screenshot once; Life
 - Email + password accounts (httpOnly session cookie)
 - Google sign-in (OpenID Connect with PKCE; only name + email are requested). An existing password account is linked only after you log in with its password once. Connect or disconnect from Settings.
 - Capture by typing, pasting, or uploading/pasting a screenshot (PNG/JPEG/WebP ≤ 5 MB)
+- Voice notes: record (up to 2 min) or upload audio; transcribed locally with Whisper (free, offline). English is transcribed; Hindi/Hinglish is translated to English
 - Screenshot OCR with Tesseract.js (runs locally; language data downloads once on first use)
 - AI extraction into a validated schema
   - `AI_PROVIDER=mock`: offline rule-based extractor, free, the default
@@ -25,7 +26,7 @@ Personal follow-through tracker: share a message, email or screenshot once; Life
 
 - Email verification links, "Forgot password?" (also lets Google-only users add a password); setting a password signs out all other devices
 
-**Not yet built:** browser push notifications, voice capture, Gmail/forwarding, deployment. See the architecture plan for the roadmap.
+**Not yet built:** browser push notifications, Gmail/forwarding, deployment. See the architecture plan for the roadmap.
 
 ## Stack
 

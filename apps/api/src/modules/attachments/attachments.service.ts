@@ -6,6 +6,7 @@ import { uuidv7 } from '../../common/ids.js';
 import { InjectDb, type DB, type DbOrTx } from '../../database/database.module.js';
 import { attachments, type AttachmentRow } from '../../database/schema.js';
 import { LocalDiskStorage } from '../storage/storage.service.js';
+import { parseWav, voiceNoteProblem } from './audio-validation.js';
 import { MAX_INPUT_PIXELS, MAX_UPLOAD_BYTES, sniffImageType } from './image-validation.js';
 
 @Injectable()
@@ -22,9 +23,12 @@ export class AttachmentsService {
    */
   async createFromUpload(userId: string, file: { buffer: Buffer; size: number }): Promise<AttachmentRow> {
     if (!file?.buffer?.length) throw new BadRequestException('No file uploaded');
-    if (file.size > MAX_UPLOAD_BYTES) throw new PayloadTooLargeException('Images must be 5 MB or smaller');
+    if (file.size > MAX_UPLOAD_BYTES) throw new PayloadTooLargeException('Files must be 5 MB or smaller');
+    if (file.buffer.toString('ascii', 0, 4) === 'RIFF' && file.buffer.toString('ascii', 8, 12) === 'WAVE') {
+      return this.createVoiceNote(userId, file.buffer);
+    }
     const type = sniffImageType(file.buffer);
-    if (!type) throw new BadRequestException('Only PNG, JPEG or WebP screenshots are supported');
+    if (!type) throw new BadRequestException('Only screenshots (PNG, JPEG, WebP) and voice notes are supported');
 
     let output: Buffer;
     let width: number | undefined;
@@ -55,6 +59,28 @@ export class AttachmentsService {
       height: height ?? null,
     };
     await this.db.insert(attachments).values(row);
+    return this.get(userId, id);
+  }
+
+  /** Voice notes: strict WAV checks (format, length). Stored as-is; WAV has no metadata to strip. */
+  private async createVoiceNote(userId: string, buffer: Buffer): Promise<AttachmentRow> {
+    const info = parseWav(buffer);
+    const problem = voiceNoteProblem(info);
+    if (problem || !info) throw new BadRequestException(problem ?? 'This audio file could not be read.');
+    const id = uuidv7();
+    const storageKey = `users/${userId}/attachments/${id}.wav`;
+    await this.storage.put(storageKey, buffer, 'audio/wav');
+    await this.db.insert(attachments).values({
+      id,
+      userId,
+      kind: 'AUDIO',
+      storageKey,
+      originalMime: 'audio/wav',
+      storedMime: 'audio/wav',
+      sizeBytes: buffer.length,
+      sha256: sha256(buffer),
+      durationMs: info.durationMs,
+    });
     return this.get(userId, id);
   }
 
