@@ -125,6 +125,31 @@ describe('mock extraction end-to-end with validation', () => {
     expect(p.isCommitment).toBe(true);
     expect(p.counterparty?.name).toBe('Dell');
     expect(p.deadline?.kind).toBe('ESTIMATED');
+    expect(p.classification).toBe('WAITING_RESPONSE');
+    expect(p.waitingOn).toBe('OTHER_PARTY');
+    expect(p.lifecycleStage).toBe('REQUEST_SUBMITTED');
+  });
+
+  it('"they said they would call" means you are waiting on them (user-reported wording)', () => {
+    const { p, c } = run('I gave my laptop for repair at the Dell service center. They said they would call me within three days.');
+    expect(p.classification).toBe('WAITING_RESPONSE');
+    expect(p.waitingOn).toBe('OTHER_PARTY');
+    expect(p.lifecycleStage).toBe('REQUEST_SUBMITTED');
+    expect(p.uncertainties).not.toContain('Could not tell whether anything is still pending');
+    expect(c.band).not.toBe('LOW');
+  });
+
+  it('other promise phrasings are understood as waiting on someone', () => {
+    for (const text of [
+      'The technician promised to come on Friday to fix the AC.',
+      'Urban Company said the plumber would come tomorrow at 11 am.',
+      "Croma told me they'll let me know when the replacement is ready.",
+      'Samsung service center will be done with the phone repair by Monday.',
+    ]) {
+      const { p } = run(text);
+      expect([text, p.waitingOn]).toEqual([text, 'OTHER_PARTY']);
+      expect([text, p.isCommitment]).toEqual([text, true]);
+    }
   });
 
   it('user must submit a document -> pending action on the user', () => {
@@ -167,6 +192,12 @@ describe('mock extraction end-to-end with validation', () => {
     expect(run('Waiting for a call back from Priya Sharma about the documents').p.counterparty?.name).toBe('Priya Sharma');
     expect(run('Waiting for the refund from Monday onwards').p.counterparty).toBeNull();
     expect(run('Amazon refund of ₹499 is pending').p.counterparty?.name).toBe('Amazon'); // companies still win
+  });
+
+  it('words ending in "nt" are not negations ("complaint has been resolved" is done)', () => {
+    expect(run('Your complaint has been resolved. Please rate us.').p.isCommitment).toBe(false);
+    expect(run('Payment has been received, thank you.').p.isCommitment).toBe(false);
+    expect(run('Rahul hasnt returned my charger yet.').p.isCommitment).toBe(true);
   });
 
   it('OTP / promotional message is informational', () => {

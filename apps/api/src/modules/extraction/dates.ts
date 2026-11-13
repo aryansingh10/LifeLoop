@@ -104,14 +104,21 @@ function withYear(m: number, d: number, yearText: string | undefined, ref: YMD, 
 }
 
 function resolveYmd(expr: string, ref: YMD, direction: 'future' | 'past'): { ymd: YMD; kind: DateKind } | null {
-  const e = expr.toLowerCase().replace(/\s+/g, ' ').trim();
+  // Hinglish: "2 din me" = in 2 days, "do hafte" = two weeks, "parso" = the day after (or before) tomorrow.
+  const e = expr
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\bdin\b/g, 'days')
+    .replace(/\bhafte?\b/g, 'weeks')
+    .replace(/\bparso\b/g, direction === 'future' ? 'day after tomorrow' : 'day before yesterday');
   let m: RegExpMatchArray | null;
 
   if (/\bday after tomorrow\b/.test(e)) return { ymd: addDays(ref, 2), kind: 'EXPLICIT' };
   if (/\bday before yesterday\b/.test(e)) return { ymd: addDays(ref, -2), kind: 'EXPLICIT' };
   if (/\btomorrow\b|\bkal\b/.test(e) && direction === 'future') return { ymd: addDays(ref, 1), kind: 'EXPLICIT' };
   if (/\byesterday\b/.test(e) || (/\bkal\b/.test(e) && direction === 'past')) return { ymd: addDays(ref, -1), kind: 'EXPLICIT' };
-  if (/\b(today|tonight|end of (the )?day|eod|aaj)\b/.test(e)) return { ymd: ref, kind: 'EXPLICIT' };
+  if (/\b(today|tonight|end of (the )?day|eod|aaj|evening)\b/.test(e)) return { ymd: ref, kind: 'EXPLICIT' };
 
   // ISO 2026-11-12
   if ((m = e.match(/\b(\d{4})-(\d{1,2})-(\d{1,2})\b/))) {
@@ -133,20 +140,31 @@ function resolveYmd(expr: string, ref: YMD, direction: 'future' | 'past'): { ymd
     const ymd = withYear(MONTHS.indexOf(m[1].slice(0, 3)) + 1, Number(m[2]), m[3], ref, direction);
     if (ymd) return { ymd, kind: 'EXPLICIT' };
   }
+  // Day of the month only: "on the 5th", "by 25th" -> next such day (or the last one, for past events)
+  if ((m = e.match(/\b(?:on |by |before |till |until )?(?:the )?(\d{1,2})(?:st|nd|rd|th)\b/))) {
+    const day = Number(m[1]);
+    const thisMonth = validYmd(ref.y, ref.m, day);
+    const nextMonth = ref.m === 12 ? validYmd(ref.y + 1, 1, day) : validYmd(ref.y, ref.m + 1, day);
+    const lastMonth = ref.m === 1 ? validYmd(ref.y - 1, 12, day) : validYmd(ref.y, ref.m - 1, day);
+    const ymd = direction === 'future' ? (thisMonth && cmp(thisMonth, ref) >= 0 ? thisMonth : nextMonth) : thisMonth && cmp(thisMonth, ref) <= 0 ? thisMonth : lastMonth;
+    if (ymd) return { ymd, kind: 'EXPLICIT' };
+  }
   // Ranges: "5-7 business days", "3 to 5 working days" -> upper bound, estimated
   if ((m = e.match(new RegExp(`\\b${NUM} ?(?:-|to|–) ?${NUM} (business |working )?(day|week)s?\\b`)))) {
     const upper = toNum(m[2]);
     if (Number.isFinite(upper)) return { ymd: shift(ref, upper, m[3], m[4]), kind: 'ESTIMATED' };
   }
   // Durations: "within 3 days", "in two weeks", "after 48 hours"
-  if ((m = e.match(new RegExp(`\\b(?:within|in|after|next|inside)? ?${NUM} (business |working )?(hour|day|week)s?\\b`)))) {
+  if ((m = e.match(new RegExp(`\\b(?:within|in|after|next|inside)? ?${NUM} (business |working )?(hour|day|week|month)s?\\b`)))) {
     const n = toNum(m[1]);
     if (Number.isFinite(n)) {
       if (m[3] === 'hour') return { ymd: addDays(ref, Math.ceil(n / 24)), kind: 'ESTIMATED' };
+      if (m[3] === 'month') return { ymd: addDays(ref, n * 30), kind: 'ESTIMATED' };
       return { ymd: shift(ref, n, m[2], m[3]), kind: 'ESTIMATED' };
     }
   }
   if (/\bnext week\b/.test(e)) return { ymd: addDays(ref, 7), kind: 'ESTIMATED' };
+  if (/\bnext (?:month|cycle)\b/.test(e)) return { ymd: addDays(ref, 30), kind: 'ESTIMATED' };
   if (/\b(end of (the )?week|this week)\b/.test(e)) return { ymd: addDays(ref, (5 - weekday(ref) + 7) % 7), kind: 'ESTIMATED' };
   if (/\b(end of (the )?month|this month)\b/.test(e)) {
     const last = new Date(Date.UTC(ref.y, ref.m, 0)).getUTCDate();
@@ -188,6 +206,15 @@ export function parseTimeOfDay(expression: string): { hour: number; minute: numb
     if (pm && hour !== 12) hour += 12;
     if (!pm && hour === 12) hour = 0;
     return { hour, minute };
+  }
+  // Hinglish: "shaam 5 baje" = 5 PM, "subah 10 baje" = 10 AM
+  const baje = expression.match(/\b(?:(subah|savere|dopahar|shaam|sham|raat)\s+)?(\d{1,2})\s*baje\b/i);
+  if (baje) {
+    let hour = Number(baje[2]);
+    const part = baje[1]?.toLowerCase();
+    if (hour < 1 || hour > 12) return null;
+    if ((part && /dopahar|shaam|sham|raat/.test(part) && hour < 12) || (!part && hour >= 1 && hour <= 6)) hour += 12;
+    return { hour, minute: 0 };
   }
   const h24 = expression.match(/\b(?:at|by)\s+([01]?\d|2[0-3]):([0-5]\d)\b/i);
   return h24 ? { hour: Number(h24[1]), minute: Number(h24[2]) } : null;

@@ -17,6 +17,12 @@ const GOOGLE_ERRORS: Record<string, string> = {
   account_conflict: 'This email is already used by another sign-in method. Log in with your password.',
 };
 
+/** Only same-site paths are allowed after login, so ?next= can't send people to another website. */
+function safeNext(next: string | null): string {
+  if (!next || !next.startsWith('/') || next.startsWith('//') || next.startsWith('/\\') || /[\r\n]/.test(next)) return '/dashboard';
+  return next;
+}
+
 export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
   return (
     <Suspense fallback={null}>
@@ -58,7 +64,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'register' }) {
             }
           : { email: form.get('email'), password: form.get('password') };
       const r = await rest<{ linkedGoogle?: boolean }>(`/api/auth/${mode}`, { method: 'POST', body: JSON.stringify(body) });
-      router.replace(r.linkedGoogle ? '/settings?google=linked' : '/dashboard');
+      router.replace(r.linkedGoogle ? '/settings?google=linked' : safeNext(params.get('next')));
     } catch (err) {
       setError(err);
       setBusy(false);
@@ -214,9 +220,9 @@ export function GoogleButton({ href, disabled, label = 'Continue with Google' }:
 export function Logo({ className = 'h-7 w-7' }: { className?: string }) {
   return (
     <svg viewBox="0 0 32 32" className={className} aria-hidden>
-      <rect width="32" height="32" rx="9" className="fill-brand-600" />
-      <path d="M10 16a6 6 0 1 0 6-6" stroke="white" strokeWidth="3" fill="none" strokeLinecap="round" />
-      <path d="M16 6.5 19 10l-3.5 3" stroke="white" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      <rect width="32" height="32" rx="7" className="fill-brand-600" />
+      <path d="M20 9.07 A8 8 0 1 1 12.4 8.85" stroke="white" strokeWidth="3" fill="none" strokeLinecap="round" />
+      <path d="M15.4 7.1 L10.6 5.9 L11.9 10.7 Z" fill="white" stroke="white" strokeWidth="1.2" strokeLinejoin="round" />
     </svg>
   );
 }

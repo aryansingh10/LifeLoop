@@ -36,6 +36,13 @@
       "when": 1794234151778,
       "tag": "0004_voice_notes",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1794579386555,
+      "tag": "0005_push_subscriptions",
+      "breakpoints": true
     }
   ]
 }

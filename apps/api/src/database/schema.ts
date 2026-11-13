@@ -399,3 +399,25 @@ export type JobRow = typeof jobs.$inferSelect;
 export type MatchCandidateRow = typeof suggestionMatchCandidates.$inferSelect;
 export type NotificationRow = typeof notifications.$inferSelect;
 export type UserIdentityRow = typeof userIdentities.$inferSelect;
+
+// ---------------------------------------------------------------- phone / browser push subscriptions
+export const pushSubscriptions = mysqlTable(
+  'push_subscriptions',
+  {
+    id: id().primaryKey(),
+    userId: id('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /** sha256 of the endpoint URL (endpoints are long; the hash keeps the unique index small). */
+    endpointHash: char('endpoint_hash', { length: 64 }).notNull(),
+    endpoint: text('endpoint').notNull(),
+    p256dh: varchar('p256dh', { length: 255 }).notNull(),
+    auth: varchar('auth', { length: 255 }).notNull(),
+    userAgent: varchar('user_agent', { length: 255 }),
+    failureCount: int('failure_count').notNull().default(0),
+    lastSuccessAt: ts('last_success_at'),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex('push_subscriptions_endpoint_uq').on(t.endpointHash), index('push_subscriptions_user_idx').on(t.userId)],
+);
+export type PushSubscriptionRow = typeof pushSubscriptions.$inferSelect;

@@ -7,6 +7,7 @@ import { env } from '../../config/env.js';
 import { localDayKey } from '../extraction/dates.js';
 import { needsReview } from '../suggestions/review-queue.js';
 import { EmailService, escapeHtml } from '../email/email.service.js';
+import { PushService } from '../push/push.service.js';
 import { dueReminders, type DueReminder } from './reminder-rules.js';
 
 const MAX_EMAIL_ATTEMPTS = 3;
@@ -18,6 +19,7 @@ export class NotificationsService {
   constructor(
     @InjectDb() private readonly db: DB,
     private readonly email: EmailService,
+    private readonly push: PushService,
   ) {}
 
   // ------------------------------------------------------------------ queries for the app
@@ -94,7 +96,11 @@ export class NotificationsService {
     const owners = new Map(rows.map((r) => [r.c.id, r.c.userId]));
     for (const r of dueReminders(rows.map((r) => ({ ...r.c, timeZone: r.timeZone })), now)) {
       const owner = owners.get(r.caseId)!;
-      if (await this.insert(owner, r)) created++;
+      if (await this.insert(owner, r)) {
+        created++;
+        // Phone/browser push, once per reminder (same moment it appears in the bell). Never blocks the run.
+        await this.push.sendToUser(owner, { title: r.title, body: r.body, url: `/cases/${r.caseId}`, tag: r.dedupeKey }).catch(() => 0);
+      }
     }
     return created;
   }

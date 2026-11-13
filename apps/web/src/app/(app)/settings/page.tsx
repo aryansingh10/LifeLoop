@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
 import { GoogleButton } from '@/components/auth-form';
+import { PhoneAppSection } from '@/components/phone-app';
 import { ErrorNote, Spinner } from '@/components/ui';
 import { gql, rest } from '@/lib/api';
 import { DISCONNECT_GOOGLE, SEND_TEST_EMAIL, SETTINGS, UPDATE_SETTINGS } from '@/lib/queries';
@@ -105,6 +106,8 @@ export default function SettingsPage() {
       <Suspense fallback={null}>
         <GoogleSection s={s} />
       </Suspense>
+
+      <PhoneAppSection />
 
       <section className="card space-y-5 p-5">
         <div>

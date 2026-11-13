@@ -18,17 +18,24 @@ const EXAMPLES = [
 
 type Voice = { wav: Blob; seconds: number; url: string };
 
+/** Content handed over from elsewhere (e.g. the phone's share sheet) to pre-fill the box. */
+export interface CaptureInitial {
+  text?: string;
+  image?: File | null;
+  audio?: File | null;
+}
+
 const fmtTime = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
 /** The one place users capture things: type, paste, attach a screenshot, or leave a voice note. */
-export function CaptureBox({ compact = false }: { compact?: boolean }) {
+export function CaptureBox({ compact = false, initial }: { compact?: boolean; initial?: CaptureInitial }) {
   const router = useRouter();
   const qc = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
   const audioFileRef = useRef<HTMLInputElement>(null);
   const recorder = useRef<VoiceRecorder | null>(null);
-  const [text, setText] = useState('');
-  const [pasted, setPasted] = useState(false);
+  const [text, setText] = useState(initial?.text ?? '');
+  const [pasted, setPasted] = useState(Boolean(initial?.text && initial.text.length > 40));
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [voice, setVoice] = useState<Voice | null>(null);
@@ -51,6 +58,16 @@ export function CaptureBox({ compact = false }: { compact?: boolean }) {
     }
     return () => recorder.current?.cancel();
   }, []);
+
+  // Shared files arrive once, after the box mounts.
+  const initialApplied = useRef(false);
+  useEffect(() => {
+    if (initialApplied.current || !initial) return;
+    initialApplied.current = true;
+    if (initial.image) pickFile(initial.image);
+    else if (initial.audio) void useAudio(initial.audio);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initial]);
 
   useEffect(() => {
     if (!recording) return;

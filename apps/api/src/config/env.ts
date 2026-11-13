@@ -40,6 +40,11 @@ const EnvSchema = z.object({
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   /** Defaults to APP_URL + /api/auth/google/callback (the web app proxies /api to the API). */
   GOOGLE_REDIRECT_URI: z.string().optional(),
+  // Web push (phone notifications). Generate once: npx web-push generate-vapid-keys
+  VAPID_PUBLIC_KEY: z.string().optional(),
+  VAPID_PRIVATE_KEY: z.string().optional(),
+  /** Contact for push services, e.g. mailto:you@example.com */
+  VAPID_SUBJECT: z.string().optional(),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

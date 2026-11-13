@@ -30,6 +30,8 @@ import { EmailService } from './modules/email/email.service.js';
 import { NotificationsResolver } from './modules/notifications/notifications.resolver.js';
 import { NotificationsService } from './modules/notifications/notifications.service.js';
 import { SchedulerService } from './modules/notifications/scheduler.service.js';
+import { PushController } from './modules/push/push.controller.js';
+import { PushService } from './modules/push/push.service.js';
 
 @Controller()
 class HealthController {
@@ -80,7 +82,7 @@ function formatError(formatted: GraphQLFormattedError, error: unknown): GraphQLF
       formatError,
     }),
   ],
-  controllers: [HealthController, AuthController, AttachmentsController],
+  controllers: [HealthController, AuthController, AttachmentsController, PushController],
   providers: [
     { provide: APP_GUARD, useClass: AuthGuard },
     AuthService,
@@ -104,6 +106,7 @@ function formatError(formatted: GraphQLFormattedError, error: unknown): GraphQLF
     NotificationsService,
     NotificationsResolver,
     SchedulerService,
+    PushService,
   ],
 })
 export class AppModule {}

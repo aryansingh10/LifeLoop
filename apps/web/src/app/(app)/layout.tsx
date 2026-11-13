@@ -8,6 +8,7 @@ import { Logo } from '@/components/auth-form';
 import { NotificationBell } from '@/components/notification-bell';
 import { Spinner } from '@/components/ui';
 import { ApiError, gql, rest } from '@/lib/api';
+import { hasPendingShare } from '@/lib/pwa';
 import { DASHBOARD, ME } from '@/lib/queries';
 import type { Dashboard, User } from '@/lib/types';
 
@@ -25,8 +26,20 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const dash = useQuery({ queryKey: ['dashboard'], queryFn: () => gql<{ dashboard: Dashboard }>(DASHBOARD).then((d) => d.dashboard), enabled: me.isSuccess });
 
   useEffect(() => {
-    if (me.error instanceof ApiError && me.error.isAuth) router.replace('/login');
-  }, [me.error, router]);
+    if (me.error instanceof ApiError && me.error.isAuth) {
+      const back = pathname && pathname !== '/dashboard' ? `?next=${encodeURIComponent(pathname)}` : '';
+      router.replace(`/login${back}`);
+    }
+  }, [me.error, router, pathname]);
+
+  // Something shared from another app while logged out waits on the device; pick it up after sign-in.
+  useEffect(() => {
+    if (!me.isSuccess || pathname === '/share') return;
+    hasPendingShare()
+      .then((pending) => pending && router.replace('/share'))
+      .catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [me.isSuccess]);
 
   async function logout() {
     await rest('/api/auth/logout', { method: 'POST' }).catch(() => undefined);
@@ -52,8 +65,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 
   const pending = dash.data?.pendingSuggestions ?? 0;
   return (
-    <div className="min-h-dvh pb-20 sm:pb-0">
-      <header className="sticky top-0 z-20 border-b border-stone-200 bg-stone-50/90 backdrop-blur dark:border-stone-800 dark:bg-stone-950/90">
+    <div className="min-h-dvh pb-[calc(5rem+env(safe-area-inset-bottom))] sm:pb-0">
+      <header className="sticky top-0 z-20 border-b border-stone-200 bg-stone-50/90 pt-[env(safe-area-inset-top)] backdrop-blur dark:border-stone-800 dark:bg-stone-950/90">
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
           <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
             <Logo className="h-6 w-6" /> LifeLoop
@@ -80,7 +93,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       </header>
       {me.data.emailVerified === false && <VerifyEmailBanner email={me.data.email} />}
       <main className="mx-auto max-w-5xl px-4 py-6">{children}</main>
-      <nav className="fixed inset-x-0 bottom-0 z-20 flex justify-around border-t border-stone-200 bg-white py-2 sm:hidden dark:border-stone-800 dark:bg-stone-900">
+      <nav className="fixed inset-x-0 bottom-0 z-20 flex justify-around border-t border-stone-200 bg-white pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] sm:hidden dark:border-stone-800 dark:bg-stone-900">
         {NAV.map((n) => (
           <NavLink key={n.href} href={n.href} active={pathname.startsWith(n.href)} badge={n.href === '/suggestions' ? pending : 0}>
             {n.label}
