@@ -19,15 +19,24 @@ export function detectCurrency(text: string): string | null {
   return null;
 }
 
+/** "5k" = 5,000; "1.5 lakh" = 1,50,000; "2 crore" = 2,00,00,000. */
+const MULTIPLIERS: Array<[RegExp, number]> = [
+  [/\b(?:crores?|cr)\b/i, 1e7],
+  [/\b(?:lakhs?|lacs?)\b/i, 1e5],
+  [/(?:\d\s?k\b|\bthousand\b|\bhazaa?r\b)/i, 1e3],
+];
+
 export function parseAmount(value: string): number | null {
-  const cleaned = value.replace(/[^\d.,]/g, '');
-  if (!/\d/.test(cleaned)) return null;
+  // Only the number itself: "Rs.1299.00" -> "1299.00" (the dot after "Rs" is not a decimal point).
+  const numeric = value.match(/\d[\d,]*(?:\.\d+)?/)?.[0] ?? '';
+  if (!/\d/.test(numeric)) return null;
   // Indian and western grouping both use commas; a single dot is the decimal separator.
-  const noGroup = cleaned.replace(/,/g, '');
-  if ((noGroup.match(/\./g) ?? []).length > 1) return null;
+  const noGroup = numeric.replace(/,/g, '');
   const n = Number(noGroup);
-  if (!Number.isFinite(n) || n <= 0 || n > 1e10) return null;
-  return Math.round(n * 100);
+  const multiplier = MULTIPLIERS.find(([re]) => re.test(value))?.[1] ?? 1;
+  const total = n * multiplier;
+  if (!Number.isFinite(total) || total <= 0 || total > 1e10) return null;
+  return Math.round(total * 100);
 }
 
 export function parseMoney(value: string, evidence: string, modelCurrency: string | null): ParsedMoney | null {

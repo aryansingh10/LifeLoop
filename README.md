@@ -124,6 +124,31 @@ npm run eval -w apps/api         # extraction quality: 1,000 labelled messages (
 npm run e2e -w apps/api          # end-to-end against a running API (uses the mock AI): 31 checks incl. OCR and data isolation
 ```
 
+### Extraction evaluation sets (offline rule-based extractor)
+
+| Set | Command (`npm run eval -w apps/api -- …`) | Size | What it is |
+|---|---|---|---|
+| tuning | *(default)* | 1,000 | Hand-written patterns the rules were first built on |
+| heldout / fresh | `--set=heldout`, `--set=fresh` | 100 / 60 | Hand-written, never tuned on |
+| large | `--set=large --patterns` | 100,000 | ~250 English + Hinglish templates × slot values × WhatsApp noise (lowercase, emojis, "Hi sir,", no punctuation). Every 4th template is held out (`--split=test`); `--lang=hi` for Hinglish only |
+| blind | `--set=blind` | 10,000 | ~60 templates written after tuning, with new wording and brands outside the dictionary |
+
+`--patterns` groups failures by template and field, biggest first. The large set takes ~1–2 minutes.
+
+Results for rules-v3:
+
+| | Large: before → after | Blind: first run → after |
+|---|---|---|
+| Something to track? | 95.1% → 100% | 95.7% → 100% |
+| Category | 90.5% → 99.9% | 67.1% → 100% |
+| Who acts next | 89.9% → 100% | 81.1% → 100% |
+| Company / person | 87.0% → 99.9% | 85.0% → 98.5% |
+| Amount | 89.9% → 100% | 100% → 100% |
+| Deadline | 79.5% → 100% | 96.3% → 100% |
+| Invented values | 18.8% → 0% | 0% → 0% |
+
+The **blind first run** is the honest estimate for wording the rules have never seen. Amounts and dates generalize because they are formats. Category and "who acts next" depend on vocabulary, so new phrasings will keep turning up gaps. That is what the Claude provider (`AI_PROVIDER=anthropic`) is for.
+
 ## Layout
 
 ```

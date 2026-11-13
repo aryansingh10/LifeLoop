@@ -27,6 +27,10 @@ const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', '
 const WEEKDAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 const MONTH_RE = '(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)';
 
+const HINDI_NUMBERS: Record<string, number> = {
+  ek: 1, do: 2, teen: 3, char: 4, chaar: 4, paanch: 5, panch: 5, chhe: 6, che: 6, saat: 7, aath: 8, nau: 9, das: 10, pandrah: 15, bees: 20,
+};
+
 const toNum = (s: string): number => (/^\d+$/.test(s) ? Number(s) : (NUMBER_WORDS[s] ?? NaN));
 
 function zonedParts(date: Date, timeZone: string) {
@@ -104,13 +108,25 @@ function withYear(m: number, d: number, yearText: string | undefined, ref: YMD, 
 }
 
 function resolveYmd(expr: string, ref: YMD, direction: 'future' | 'past'): { ymd: YMD; kind: DateKind } | null {
-  // Hinglish: "2 din me" = in 2 days, "do hafte" = two weeks, "parso" = the day after (or before) tomorrow.
+  // Hinglish: "2 din me" = in 2 days, "do hafte" = two weeks, "parso" = the day after (or before) tomorrow,
+  // "agle hafte" = next week, "25 tarikh" = the 25th. "A couple of / a few days" are rough, so estimates.
   const e = expr
     .toLowerCase()
     .replace(/\s+/g, ' ')
     .trim()
-    .replace(/\bdin\b/g, 'days')
-    .replace(/\bhafte?\b/g, 'weeks')
+    .replace(/\b(ek|do|teen|chaar|char|paanch|panch|chhe|che|saat|aath|nau|das|pandrah|bees)\b(?= (?:din|dino|hafte|hafton|mahine))/g, (w) => String(HINDI_NUMBERS[w]))
+    .replace(/\bhafte bhar\b/g, 'within 1 week')
+    .replace(/\bagle hafte\b/g, 'next week')
+    .replace(/\bagle mahine\b/g, 'next month')
+    .replace(/\bis hafte\b/g, 'this week')
+    .replace(/\bmahine ke (?:end|aakhir|akhir)\b/g, 'end of the month')
+    .replace(/\bmonth[- ]?end\b/g, 'end of the month')
+    .replace(/\b(\d{1,2}) tarikh\b/g, '$1th')
+    .replace(/\b(?:a )?couple of\b/g, '2')
+    .replace(/\b(?:a )?few\b/g, '3')
+    .replace(/\b(?:din|dino)\b/g, 'days')
+    .replace(/\b(?:hafte|hafton|hafta)\b/g, 'weeks')
+    .replace(/\bmahine\b/g, 'months')
     .replace(/\bparso\b/g, direction === 'future' ? 'day after tomorrow' : 'day before yesterday');
   let m: RegExpMatchArray | null;
 
@@ -165,8 +181,8 @@ function resolveYmd(expr: string, ref: YMD, direction: 'future' | 'past'): { ymd
   }
   if (/\bnext week\b/.test(e)) return { ymd: addDays(ref, 7), kind: 'ESTIMATED' };
   if (/\bnext (?:month|cycle)\b/.test(e)) return { ymd: addDays(ref, 30), kind: 'ESTIMATED' };
-  if (/\b(end of (the )?week|this week)\b/.test(e)) return { ymd: addDays(ref, (5 - weekday(ref) + 7) % 7), kind: 'ESTIMATED' };
-  if (/\b(end of (the )?month|this month)\b/.test(e)) {
+  if (/\b(end of (the |this )?week|this week)\b/.test(e)) return { ymd: addDays(ref, (5 - weekday(ref) + 7) % 7), kind: 'ESTIMATED' };
+  if (/\b(end of (the |this )?month|this month)\b/.test(e)) {
     const last = new Date(Date.UTC(ref.y, ref.m, 0)).getUTCDate();
     return { ymd: { y: ref.y, m: ref.m, d: last }, kind: 'ESTIMATED' };
   }

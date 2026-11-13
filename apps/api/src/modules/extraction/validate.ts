@@ -167,6 +167,13 @@ export function validateExtraction(raw: Extraction, ctx: ValidationContext): Val
         uncertainties.push(`Mentions timing "${raw.deadline.expression}" but no date could be worked out`);
       } else if (resolved.date.getTime() - ctx.capturedAt.getTime() > 2 * 365 * 24 * 3600 * 1000) {
         issues.push(`Deadline "${raw.deadline.expression}" ignored: more than 2 years away`);
+      } else if (
+        resolved.kind === 'EXPLICIT' &&
+        !/\b\d{4}\b|\b\d{1,2}[/.-]\d{1,2}[/.-]\d{2}\b/.test(raw.deadline.expression) &&
+        resolved.date.getTime() - ctx.capturedAt.getTime() > 300 * 24 * 3600 * 1000
+      ) {
+        // "on 2 Nov" said on 10 Nov is almost certainly last week, not next year.
+        issues.push(`Date "${raw.deadline.expression}" looks like a recent past date, not a deadline`);
       } else {
         deadline = {
           at: resolved.date.toISOString(),
