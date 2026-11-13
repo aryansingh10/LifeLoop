@@ -9,7 +9,10 @@ Personal follow-through tracker: share a message, email or screenshot once; Life
 - Email + password accounts (httpOnly session cookie)
 - Google sign-in (OpenID Connect with PKCE; only name + email are requested). An existing password account is linked only after you log in with its password once. Connect or disconnect from Settings.
 - Capture by typing, pasting, or uploading/pasting a screenshot (PNG/JPEG/WebP ≤ 5 MB)
-- Voice notes: record (up to 2 min) or upload audio; transcribed locally with Whisper (free, offline). English is transcribed; Hindi/Hinglish is translated to English
+- Voice notes: record (up to 2 min) or upload audio; transcribed locally with Whisper (free, offline).
+  - English: `whisper-base`.
+  - Hindi/Hinglish: `whisper-large-v3-turbo`, transcribed as Hindi and written out in Roman letters ("kal mera Myntra ka refund aane wala hai 500 rupees ka"). This model needs ~2.7 GB RAM and takes ~10–20 s per note.
+  - Brand names misheard by speech-to-text ("FlipCart", "Mentra", "Geomart") are matched to the real brand.
 - Screenshot OCR with Tesseract.js (runs locally; language data downloads once on first use)
 - AI extraction into a validated schema
   - `AI_PROVIDER=mock`: offline rule-based extractor, free, the default

@@ -5,8 +5,8 @@ export interface ExtractionRequest {
   capturedAtLocal: string;
   timeZone: string;
   sourceKind: 'TEXT' | 'PASTE' | 'SCREENSHOT' | 'VOICE';
-  /** Voice note spoken in Hindi/Hinglish and translated to English by the transcriber. */
-  translated?: boolean;
+  /** Voice note spoken in Hindi/Hinglish; the transcript is Hinglish written in Roman letters. */
+  romanizedHinglish?: boolean;
 }
 
 export interface ExtractionResponse {

@@ -89,7 +89,7 @@ export default function CapturePage() {
             <>
               <span className="label">Voice note</span>
               <audio controls src={c.attachment.url} className="w-full max-w-md" />
-              {c.language === 'hi' && <p className="mt-2 text-xs text-stone-500">Spoken in Hindi/Hinglish — the text below is an English translation.</p>}
+              {c.language === 'hi' && <p className="mt-2 text-xs text-stone-500">Spoken in Hindi/Hinglish — written below in Roman letters.</p>}
             </>
           ) : (
             <>

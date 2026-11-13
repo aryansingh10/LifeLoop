@@ -290,3 +290,34 @@ describe('rules-v3: gaps found at scale', () => {
     expect(run('Your Ola ride with Suresh is complete. Fare ₹186.').p.isCommitment).toBe(false);
   });
 });
+
+// Voice notes: what local Whisper writes for spoken messages (eval: 1,200 synthetic voice notes).
+describe('voice transcripts', () => {
+  it('"Remind me to ..." is your own to-do', () => {
+    const r = run('Remind me to submit my Pan Card copy to HR by Monday.');
+    expect(r.p.waitingOn).toBe('USER');
+    expect(r.p.counterparty).toBeNull();
+    expect(r.p.deadline?.kind).toBe('EXPLICIT');
+  });
+
+  it('known speech-to-text spellings of brands map to the brand', () => {
+    expect(run("FlipCart initiated my refund of 2499 Rupees yesterday but I haven't received it yet.").p.counterparty?.name).toBe('Flipkart');
+    expect(run('My Mintra order will be delivered day after tomorrow.').p.counterparty?.name).toBe('Myntra');
+    expect(run('Paid 500 rupees with Phone Pay').p.counterparty?.name).toBe('PhonePe');
+  });
+
+  it('near-miss brand spellings in a company position are recognised, and the misspelling is quoted', () => {
+    const r = run("Mentra initiated my refund of 4,200 Rupees last Friday but I haven't received it yet.");
+    expect(r.p.counterparty?.name).toBe('Myntra');
+    expect(r.p.counterparty?.evidence).toBe('Mentra');
+    expect(run('I returned the tablet to Geomart yesterday, refunds still not processed.').p.counterparty?.name).toBe('JioMart');
+    expect(run('Canceled my Rappado booking, refund of 999 rupees expected next week.').p.counterparty?.name).toBe('Rapido');
+    expect(run('Hi, my refund for SnapDial order, 99 Rs, is not showing in my bank account.').p.counterparty?.name).toBe('Snapdeal');
+  });
+
+  it('ordinary words are never turned into brands', () => {
+    expect(run('My mentor order will be delivered day after tomorrow.').p.counterparty?.name).not.toBe('Myntra');
+    expect(run('Other people said the refund will come next week.').p.counterparty?.name ?? null).not.toBe('Ather');
+    expect(run('Apply now for a pre-approved loan.').p.counterparty?.name ?? null).not.toBe('Apple');
+  });
+});

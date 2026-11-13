@@ -13,6 +13,8 @@ const EnvSchema = z.object({
   OCR_LANGS: z.string().default('eng'),
   /** Local Whisper model for voice notes (downloaded once). whisper-small is more accurate for Hindi but slower. */
   WHISPER_MODEL: z.string().default('onnx-community/whisper-base'),
+  /** Hindi/Hinglish voice notes. Small models garble Hinglish; large-v3-turbo (~1.1 GB, ~2.7 GB RAM) gets it right. */
+  WHISPER_HINDI_MODEL: z.string().default('onnx-community/whisper-large-v3-turbo'),
   STORAGE_DIR: z.string().default('./storage'),
   WORKER_ENABLED: z
     .string()

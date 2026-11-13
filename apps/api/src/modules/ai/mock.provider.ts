@@ -1,3 +1,4 @@
+import { BRAND_RE, canonicalBrand, nearBrand } from '../extraction/brands.js';
 import type { Category, Classification, Extraction, WaitingOn } from '../extraction/extraction.schema.js';
 import type { AiProvider, ExtractionRequest, ExtractionResponse } from './ai-provider.js';
 
@@ -34,59 +35,13 @@ function findAll(source: string, re: RegExp): Hit[] {
 }
 
 const rx = (source: string, flags = 'i') => new RegExp(source, flags);
-const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /** One "sentence character": anything but a full stop/newline, except dots in "Rs.", "Dr." and decimals. */
 const SC = String.raw`(?:[^.\n]|\.(?=\s?\d)|(?<=\b(?:Rs|rs|Dr|Mr|Mrs|Ms|No|Prof|St))\.)`;
 
 // ------------------------------------------------------------------ companies and people
-
-/**
- * Well-known Indian brands, matched case-insensitively ("hdfc bank", "Yes Bank"). Anything else is found
- * by the general patterns in findParty(). Words that are also ordinary English/Hindi words are left out.
- */
-const KNOWN_COUNTERPARTIES = [
-  // shopping & delivery
-  'Amazon', 'Flipkart', 'Myntra', 'Meesho', 'Ajio', 'Nykaa', 'Swiggy', 'Swiggy Instamart', 'Instamart', 'Zomato', 'Blinkit', 'Zepto', 'BigBasket',
-  'JioMart', 'Snapdeal', 'Shopsy', 'Dunzo', 'Croma', 'Reliance Digital', 'Reliance Trends', 'Vijay Sales', 'Decathlon', 'IKEA', 'Lenskart',
-  'Pepperfry', 'Urban Ladder', 'FirstCry', 'Purplle', 'Mamaearth', 'Bewakoof', 'Tata CLiQ', 'Tata Neu', 'DMart', 'Lifestyle', 'Westside',
-  'Pantaloons', 'Delhivery', 'Blue Dart', 'DTDC', 'Ekart', 'Xpressbees', 'Shadowfax', 'India Post', 'Speed Post', 'Porter', 'Urban Company',
-  // travel
-  'Uber', 'Ola', 'Rapido', 'IRCTC', 'MakeMyTrip', 'Goibibo', 'Cleartrip', 'Yatra', 'EaseMyTrip', 'ixigo', 'redBus', 'IndiGo', 'Air India',
-  'Vistara', 'SpiceJet', 'Akasa Air', 'OYO', 'Airbnb',
-  // telecom, TV, subscriptions
-  'Airtel', 'Airtel Xstream', 'Jio', 'JioFiber', 'Vi', 'Vodafone', 'BSNL', 'MTNL', 'Tata Play', 'Dish TV', 'ACT Fibernet', 'Hathway', 'Excitel',
-  'Netflix', 'Hotstar', 'Disney+ Hotstar', 'Spotify', 'YouTube Premium',
-  // utilities
-  'BESCOM', 'BSES', 'Tata Power', 'Adani Electricity', 'MSEDCL', 'MSEB', 'Torrent Power', 'TNEB', 'KSEB', 'CESC', 'Mahanagar Gas', 'IGL', 'Indane',
-  'HP Gas', 'Bharat Gas',
-  // banks, payments, lending, insurance
-  'HDFC', 'HDFC Bank', 'ICICI', 'ICICI Bank', 'SBI', 'State Bank of India', 'Axis Bank', 'Kotak', 'Kotak Mahindra Bank', 'Yes Bank', 'IDFC First',
-  'IDFC First Bank', 'IndusInd', 'IndusInd Bank', 'Bank of Baroda', 'PNB', 'Canara Bank', 'Union Bank', 'AU Bank', 'Federal Bank', 'RBL Bank',
-  'Paytm', 'PhonePe', 'Google Pay', 'GPay', 'CRED', 'BHIM', 'Amazon Pay', 'Bajaj', 'Bajaj Finserv', 'Bajaj Finance', 'Bajaj Allianz', 'LIC',
-  'Zerodha', 'Groww', 'Star Health', 'HDFC Ergo', 'ICICI Lombard', 'Niva Bupa', 'Care Health', 'Tata AIG', 'Acko', 'Policybazaar', 'Max Life', 'SBI Life',
-  // electronics & appliances
-  'Samsung', 'Apple', 'OnePlus', 'Xiaomi', 'Redmi', 'Realme', 'Vivo', 'Oppo', 'Motorola', 'Nokia', 'Dell', 'HP', 'Lenovo', 'Asus', 'Acer', 'LG',
-  'Sony', 'Whirlpool', 'Voltas', 'Godrej', 'Bosch', 'IFB', 'Haier', 'Daikin', 'Blue Star', 'Philips', 'Panasonic', 'Hitachi', 'Kent', 'Aquaguard',
-  'Havells', 'Crompton', 'V-Guard', 'Prestige',
-  // health
-  'Apollo', 'Apollo Pharmacy', 'Fortis', 'Manipal', 'Narayana', 'Medanta', 'AIIMS', 'Kokilaben', 'Aster', 'Ruby Hall', 'Max Hospital', 'Thyrocare',
-  'Metropolis', 'Redcliffe', 'SRL Diagnostics', 'Healthians', 'Practo', '1mg', 'PharmEasy', 'Netmeds',
-  // employers & services
-  'Infosys', 'TCS', 'Wipro', 'Accenture', 'Zoho', 'Razorpay', 'Deloitte', 'Capgemini', 'HCL', 'Freshworks', 'Cognizant', 'Tech Mahindra', 'Google',
-  'Microsoft', 'IBM', 'VFS', 'UIDAI', 'EPFO', 'Passport Seva',
-  // vehicles
-  'Maruti', 'Maruti Suzuki', 'Hyundai', 'Honda', 'Tata Motors', 'Mahindra', 'Kia', 'Toyota', 'Renault', 'Skoda', 'Volkswagen', 'TVS', 'Royal Enfield',
-  'Ola Electric', 'Ather', 'Bajaj Auto',
-];
-
-const BRAND_BY_LOWER = new Map(KNOWN_COUNTERPARTIES.map((n) => [n.toLowerCase(), n]));
-/** One alternation, longest names first, so "HDFC Bank" wins over "HDFC" at the same position. */
-const BRAND_RE = new RegExp(
-  String.raw`(?<![A-Za-z0-9])(${[...KNOWN_COUNTERPARTIES].sort((a, b) => b.length - a.length).map(escapeRe).join('|')})(?:\.in|\.com)?(?![A-Za-z0-9])`,
-  'gi',
-);
+// Well-known brands and their other spellings ("FlipCart", "Phone Pay") live in extraction/brands.ts.
 
 /** Capitalised words that are never a company or person by themselves. */
 const NOT_A_NAME = new Set([
@@ -103,6 +58,7 @@ const NOT_A_NAME = new Set([
   'Reimbursement', 'Manager', 'Weather', 'Flat', 'Congratulations', 'Happy', 'Shop', 'Mom', 'Dad', 'Mummy', 'Papa', 'Didi', 'Claim', 'Travel', 'Screen',
   'Driving', 'Visa', 'Dinner', 'Lunch', 'Parent', 'Salon', 'Society', 'Doctor', 'Flight', 'Dear', 'Good', 'Morning', 'Night',
   'Eye', 'Blood', 'Dental', 'Health', 'Annual', 'Full', 'Body', 'Cashless', 'Lodged', 'Sent', 'Tracking', 'Port', 'Promised', 'Got', 'Bro', 'Dude',
+  'Remind', 'Ask', 'Tell', 'Pan', 'Card', 'Credit', 'Debit',
   // roles: a real party but not a name
   'Plumber', 'Electrician', 'Carpenter', 'Mechanic', 'Mistri', 'Technician', 'Engineer', 'Driver', 'Landlord', 'Owner', 'Tenant', 'Client', 'Vendor',
   'Seller', 'Agent', 'Office', 'College', 'School', 'University', 'Company', 'HR', 'Finance', 'Accounts', 'Admin', 'Boss', 'Friend', 'Guy',
@@ -173,7 +129,7 @@ const NOT_BRAND_EXT = /^(?:Service|Center|Centre|Customer|Care|Support|Hospital|
 function knownBrand(source: string): Party | null {
   const hit = find(source, BRAND_RE);
   if (!hit) return null;
-  const canonical = BRAND_BY_LOWER.get(hit.groups[0].toLowerCase()) ?? hit.groups[0];
+  const canonical = canonicalBrand(hit.groups[0]) ?? hit.groups[0];
   const rest = source.slice(hit.index + hit.text.length);
   const ext = BRAND_EXT_RE.exec(rest);
   if (ext) {
@@ -210,6 +166,7 @@ const PARTY_PATTERNS: Array<{ re: RegExp; person: boolean }> = [
   { re: rx(String.raw`\b(${NAME})\s+(?:said|says|promised|told|will|would|has (?:promised|returned|paid|not|approved|accepted|rejected|initiated|confirmed|asked|sent|refunded|cancelled)|hasn'?t|didn'?t|returned|paid back|paid|owes|asked|borrowed|gave|took|lent|bole|bola|boli)\b`, 'g'), person: true },
   { re: rx(String.raw`\b(?:${anyCase('promised|told|tell|asked|remind|called|call|text|message|lent|lend|owe|meet|visit|pay|paid|give|return')})\s+(${NAME})\b`, 'g'), person: true },
   { re: rx(String.raw`\b(?:waiting (?:on|for)|depending on)\s+(${NAME})\b`, 'g'), person: true }, // "Waiting on Tara to sign"
+  { re: rx(String.raw`\bfor\s+(${NAME})\s+(?:${PARTY_NOUNS})\b`, 'g'), person: false }, // "my refund for SnapDial order"
   { re: rx(String.raw`\b(?:from|with|to|at|by|via|on)\s+(?:the\s+)?(${NAME})\b`, 'g'), person: false }, // "with the Razorpay team"
   { re: rx(String.raw`\b(${NAME})'s\b`, 'g'), person: true },
   { re: rx(String.raw`\b(${NAME}) (?:me|mein|main|pe|par)\b`, 'g'), person: false }, // "Aster me checkup hai"
@@ -224,6 +181,9 @@ function findParty(source: string): Party | null {
       const name = cleanName(hit.groups[0]);
       if (!name) continue;
       if (titled && titled.evidence.includes(name)) return titled;
+      // Speech-to-text respells brands ("Mentra initiated my refund"): use the brand, quote what was written.
+      const brand = nearBrand(name);
+      if (brand) return { name: brand, evidence: name, person: false };
       return { name, evidence: name, person };
     }
   }
@@ -273,7 +233,9 @@ const INFORMATIONAL = /\b(?:otp|one[- ]time password|verification code|\d+% off|
 const NOTICE = /\b(?:supply will be (?:interrupted|disrupted|off)|power cut|outage|scheduled maintenance|will be unavailable|downtime|services? will be (?:down|affected))\b/i;
 
 /** Hinglish future tense: "de dega", "bhej dega", "ho jayega", "aayega", "karenge". */
-const HI_FUTURE = String.raw`dega|degi|denge|dunga|dungi|bhejega|bhejegi|bhejenge|karega|karegi|karenge|hoga|hogi|honge|aayega|aayegi|aayenge|ayega|ayegi|milega|milegi|milenge|batayega|batayegi|batayenge|lautayega|lautayegi|jayega|jayegi|jayenge|aane wala|aane wali|aane wale`;
+const HI_FUTURE = String.raw`dega|degi|denge|dunga|dungi|bhejega|bhejegi|bhejenge|karega|karegi|karenge|hoga|hogi|honge|aayega|aayegi|aayenge|ayega|ayegi|aega|aegi|milega|milegi|milenge|batayega|batayegi|batayenge|lautayega|lautayegi|jayega|jayegi|jayenge|jaega|jaegi|aane wala|aane wali|aane wale`;
+const HI_FUTURE_RE = rx(String.raw`\b(?:${HI_FUTURE}|wala hai|wali hai|wale hain|karna hai|dena hai|jana hai)\b`);
+const HI_PAST_RE = /\b(?:tha|thi|the|kiya|kiye|gaya|gayi|gaye|aaya|aayi|diya|diye|hua|hui|mila|mili)\b/i;
 
 /** Things still open. "Strong" signals beat a completion word or an informational look. */
 const STRONG_PENDING = rx(
@@ -309,7 +271,7 @@ const CANCELLED = /\b(?:cancel(?:l)?ed|called off|cancel ho gay[ai])\b/i;
 // "need to / have to / must + any verb" is a to-do; "please/kindly" only with real task verbs ("Please rate us" is not).
 const USER_VERBS = 'submit|upload|send|provide|share|pay|complete|sign|bring|collect|pick up|get|update|renew|return|visit|book|attend|fill|call|apply|file|link|verify|carry|deposit|transfer|reply|email|meet|go|confirm';
 const USER_ACTION = rx(
-  String.raw`\b(?:i |you |we )?(?:need to|needs to|have to|has to|must|got to|should|remember to|don'?t forget to) (?:be )?[a-z]+\b${SC}{0,60}|\b(?:please|kindly) (?:${USER_VERBS})\b${SC}{0,60}|\bneed (?:a |the |my )?(?:\w+ )?(?:sign-?off|approval|signature)\b${SC}{0,40}`,
+  String.raw`\b(?:i |you |we )?(?:need to|needs to|have to|has to|must|got to|should|remember to|don'?t forget to|remind me to|don'?t let me forget to) (?:be )?[a-z]+\b${SC}{0,60}|\bremind me (?:about|of)\b${SC}{0,60}|\b(?:please|kindly) (?:${USER_VERBS})\b${SC}{0,60}|\bneed (?:a |the |my )?(?:\w+ )?(?:sign-?off|approval|signature)\b${SC}{0,40}`,
 );
 const GREETING = String.raw`(?:(?:hi|hello|hey|fwd|fw|bhai|yaar|dear|reminder(?: to self)?|note(?: to self)?|to-?do)(?: sir| madam| bhai)?[,:!-]?\s+){0,2}`;
 const USER_IMPERATIVE = rx(
@@ -387,6 +349,9 @@ function findDeadline(text: string): Extraction['deadline'] {
       return { expression: hit.text, kind, evidence: hit.text };
     }
   }
+  // Plain "kal"/"parso" is tomorrow in a future sentence ("kal refund aane wala hai") and yesterday in a past one.
+  const day = find(text, /\b(?:kal|parso)\b/i);
+  if (day && HI_FUTURE_RE.test(text) && !HI_PAST_RE.test(text)) return { expression: day.text, kind: 'EXPLICIT', evidence: day.text };
   return null;
 }
 

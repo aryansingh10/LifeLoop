@@ -10,7 +10,7 @@ export interface ExtractionInput {
   timeZone: string;
   sourceKind: 'TEXT' | 'PASTE' | 'SCREENSHOT' | 'VOICE';
   ocrConfidence?: number | null;
-  translated?: boolean;
+  romanizedHinglish?: boolean;
 }
 
 export type ExtractionOutcome =
@@ -37,7 +37,7 @@ export class ExtractionService {
       capturedAtLocal: formatLocal(input.capturedAt, input.timeZone),
       timeZone: input.timeZone,
       sourceKind: input.sourceKind,
-      translated: input.translated,
+      romanizedHinglish: input.romanizedHinglish,
     };
 
     // One repair attempt if the output does not match the schema.

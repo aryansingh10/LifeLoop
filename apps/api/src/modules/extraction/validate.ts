@@ -6,6 +6,7 @@ import {
   type WaitingOn,
 } from './extraction.schema.js';
 import { followUpAfter, isDurationExpression, resolveDeadline, resolveEventDate } from './dates.js';
+import { brandsMentioned, isBrandSpelling } from './brands.js';
 import { formatMoney, parseMoney } from './money.js';
 import { foldForCompare, normalizeCounterparty, normalizeIdentifier, tokens } from './text.js';
 
@@ -97,7 +98,13 @@ export function validateExtraction(raw: Extraction, ctx: ValidationContext): Val
   if (raw.counterparty) {
     const nameTokens = tokens(raw.counterparty.name);
     const srcTokens = new Set(tokens(source));
-    const nameInSource = nameTokens.some((t) => srcTokens.has(t)) || foldForCompare(source).includes(foldForCompare(raw.counterparty.name));
+    const nameInSource =
+      nameTokens.some((t) => srcTokens.has(t)) ||
+      foldForCompare(source).includes(foldForCompare(raw.counterparty.name)) ||
+      // A known spelling of the brand is in the text: "FlipCart" (speech-to-text) -> Flipkart.
+      brandsMentioned(source).has(raw.counterparty.name.trim().toLowerCase()) ||
+      // The quoted word (which must itself be in the text) is a near-miss spelling of that brand: "Mentra" -> Myntra.
+      isBrandSpelling(raw.counterparty.evidence, raw.counterparty.name);
     if (evidenceFound(raw.counterparty.evidence, source) && nameInSource) {
       counterparty = { name: raw.counterparty.name.trim(), normalized: normalizeCounterparty(raw.counterparty.name), evidence: raw.counterparty.evidence };
     } else {

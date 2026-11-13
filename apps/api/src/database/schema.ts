@@ -151,7 +151,7 @@ export const captures = mysqlTable(
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     source: varchar('source', { length: 16 }).notNull(), // TEXT | PASTE | SCREENSHOT | VOICE
-    /** Voice notes: language spoken ('en' transcribed as-is, 'hi' = Hindi/Hinglish translated to English). */
+    /** Voice notes: language spoken ('en' transcribed as-is, 'hi' = Hindi/Hinglish written out in Roman letters). */
     language: varchar('language', { length: 8 }),
     rawText: mediumtext('raw_text'),
     attachmentId: id('attachment_id').references(() => attachments.id, { onDelete: 'set null' }),

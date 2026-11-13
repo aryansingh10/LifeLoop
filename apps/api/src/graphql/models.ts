@@ -130,7 +130,7 @@ export class Capture {
   @Field(() => String, { nullable: true }) editedText: string | null;
   @Field(() => Float, { nullable: true }) ocrConfidence: number | null;
   @Field(() => String, { nullable: true }) note: string | null;
-  @Field(() => String, { nullable: true, description: "Voice notes: 'en', or 'hi' (Hindi/Hinglish, translated to English)" }) language: string | null;
+  @Field(() => String, { nullable: true, description: "Voice notes: 'en', or 'hi' (Hindi/Hinglish, written in Roman letters)" }) language: string | null;
   @Field(() => String, { nullable: true }) failureCode: string | null;
   @Field(() => Attachment, { nullable: true }) attachment: Attachment | null;
   @Field(() => GraphQLISODateTime) createdAt: Date;

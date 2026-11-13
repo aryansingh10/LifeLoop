@@ -74,7 +74,7 @@ export class ProcessingService implements OnModuleInit {
         provider: 'whisper-local',
         model: result.model,
         inputHash: attachment.sha256,
-        validatedOutput: { textLength: result.text.length, language: capture.language, translated: result.translated, durationMs: attachment.durationMs },
+        validatedOutput: { textLength: result.text.length, language: capture.language, romanized: result.romanized, durationMs: attachment.durationMs },
         latencyMs: Date.now() - started,
         status: result.text.length >= 3 ? 'SUCCEEDED' : 'INVALID',
       });
@@ -197,7 +197,7 @@ export class ProcessingService implements OnModuleInit {
         capturedAt: capture.createdAt,
         timeZone,
         sourceKind: capture.source as 'TEXT' | 'PASTE' | 'SCREENSHOT' | 'VOICE',
-        translated: capture.language === 'hi',
+        romanizedHinglish: capture.language === 'hi',
         ocrConfidence: capture.ocrConfidence,
       });
     } catch (err) {

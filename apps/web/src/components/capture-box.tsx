@@ -245,7 +245,7 @@ export function CaptureBox({ compact = false, initial }: { compact?: boolean; in
               </button>
             ))}
           </div>
-          {language === 'hi' && <p className="text-xs text-stone-500">Hindi is translated to English text so details can be picked out.</p>}
+          {language === 'hi' && <p className="text-xs text-stone-500">Written out in Roman letters (Hinglish), like &ldquo;kal mera refund aane wala hai&rdquo;. Takes a little longer than English.</p>}
         </div>
       )}
 
